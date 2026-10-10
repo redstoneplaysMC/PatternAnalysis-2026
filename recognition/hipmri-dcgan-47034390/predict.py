@@ -1,4 +1,5 @@
 """
+This should run AFTER a trained model exists. The generator will be used to create new MRI samples and visualize them.
 Prediction and Visualization Script for Trained WGAN-GP Model (Use DC-GAN Generator)
 
 This script loads your trained generator and creates comprehensive visualizations:
@@ -19,11 +20,6 @@ import matplotlib.pyplot as plt
 import json
 import math
 
-# Import our custom modules
-from modules import Generator, compute_ssim
-from dataset import denormalize, get_loader
-
-
 # ============================================================
 # CONFIGURATION
 # ============================================================
@@ -41,7 +37,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ============================================================
 
 # Initialize the generator with the same architecture used in training
-generator = Generator(latent_dim=latent_dim, img_channels=img_channels).to(device)
+# generator = Generator(latent_dim=latent_dim, img_channels=img_channels).to(device)
 
 # Try to load the best model (highest SSIM), fallback to final model if not found
 model_path = 'checkpoints/best_model.pth'
@@ -51,8 +47,8 @@ if not os.path.exists(model_path):
 
 # Load the saved weights
 checkpoint = torch.load(model_path, map_location=device, weights_only=False)
-generator.load_state_dict(checkpoint['generator_state_dict'])
-generator.eval()  # Set to evaluation mode (disables dropout, etc.)
+# generator.load_state_dict(checkpoint['generator_state_dict'])
+# generator.eval()  # Set to evaluation mode (disables dropout, etc.)
 
 # Display model info if available
 if 'ssim' in checkpoint:
