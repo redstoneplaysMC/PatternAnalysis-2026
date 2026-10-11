@@ -8,17 +8,20 @@ import torch
 
 class Generator(nn.Module):
     # Why? is this a DCGAN and not a basic GAN?
-    def __init__(self, latent_dim=100):
+    def __init__(self, latent_dim=100, channels=1, image_size=28):
         super().__init__()
+        
+        initial_size = image_size // 4
 
         self.model = nn.Sequential(
             nn.ConvTranspose2d(
                 latent_dim, 128,
-                kernel_size=7,
+                kernel_size=initial_size,
                 stride=1,
                 padding=0,
                 bias=False
             ),
+            
             nn.BatchNorm2d(128),
             nn.ReLU(True),
 
@@ -33,7 +36,8 @@ class Generator(nn.Module):
             nn.ReLU(True),
 
             nn.ConvTranspose2d(
-                64, 1,
+                64, 
+                channels,
                 kernel_size=4,
                 stride=2,
                 padding=1,
@@ -46,13 +50,22 @@ class Generator(nn.Module):
         return self.model(z)
 
 class Discriminator(nn.Module):
+    """Discriminator network for DCGAN.
 
-    def __init__(self):
+    Args:
+        channels (int): Number of input image channels. Default is 1.
+        image_size (int): Size of the input image. Default is 28.
+    """
+
+    def __init__(self, channels=1, image_size=28):
         super().__init__()
+        
+        initial_size = image_size // 4
 
         self.model = nn.Sequential(
             nn.Conv2d(
-                1, 32,
+                channels,
+                32,
                 kernel_size=4,
                 stride=2,
                 padding=1,
@@ -72,7 +85,7 @@ class Discriminator(nn.Module):
 
             nn.Conv2d(
                 64, 1,
-                kernel_size=7,
+                kernel_size=initial_size,
                 stride=1,
                 padding=0,
                 bias=False
@@ -83,16 +96,14 @@ class Discriminator(nn.Module):
         return self.model(x).view(-1)
 
 def compute_fid(reference_images, generated):
+    
     def prepare_for_fid(images):
+        if images.shape[1] == 1:
+            images = images.repeat(1, 3, 1, 1)
 
-        # [N, 1, 28, 28]
-        images = images.repeat(1, 3, 1, 1)
-
-        # [N, 3, 299, 299]
         images = resize(images, [299, 299])
 
-        # FID expects uint8 images in [0, 255]
-        images = (images * 255).clamp(0, 255).to(torch.uint8)
+        images = ((images + 1) / 2 * 255).clamp(0, 255).to(torch.uint8)
 
         return images
 

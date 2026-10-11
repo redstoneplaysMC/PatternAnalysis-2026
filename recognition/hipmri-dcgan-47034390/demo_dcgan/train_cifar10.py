@@ -2,31 +2,27 @@ import time
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
-from torchmetrics.functional.image import structural_similarity_index_measure
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 from torchvision.utils import save_image
 from pathlib import Path
-from modules_mnist import Generator, Discriminator, compute_fid
+from modules_cifar10 import Generator, Discriminator, compute_fid
 import yaml
-    
-# https://medium.com/@masonthecount/using-a-dcgan-to-learn-the-mnist-dataset-in-order-to-generate-images-1ca616e45463
-# AI-generated code.
 
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
-results_dir = Path(config["results_dir"])
+results_dir = Path(config["results_dir"]) / "cifar10"
 results_dir.mkdir(parents=True, exist_ok=True)
 num_to_save = max(64, config["num_generated"])
 
 transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize((0.5,), (0.5,))
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
 
 train_dataset = Subset(
-    datasets.MNIST(
+    datasets.CIFAR10(
         root="./data",
         train=True,
         download=True,
@@ -42,9 +38,8 @@ train_dataloader = DataLoader(
     shuffle=True
 )
 
-
 reference_dataset = Subset(
-    datasets.MNIST(
+    datasets.CIFAR10(
         # Create the reference dataset for evaluation purposes
         root="./data",
         train=False,
@@ -92,7 +87,7 @@ def save_generated_samples(G, epoch, latent_dim, device, results_dir, batch_size
     fig, axes = plt.subplots(4, 4, figsize=(6, 6))
 
     for i, ax in enumerate(axes.flat):
-        ax.imshow(generated[i, 0], cmap="gray")
+        ax.imshow(generated[i].permute(1, 2, 0) * 0.5 + 0.5)
         ax.axis("off")
 
     fig.savefig(
@@ -116,14 +111,14 @@ def save_and_plot_generated(generated, reference_images, results_dir):
     
     save_image(
         generated[:min(num_to_save, generated.size(0))],
-        f"{results_dir}/generated_mnist.png",
+        f"{results_dir}/generated_cifar10.png",
         nrow=8,
         normalize=False
     )
 
     save_image(
         reference_images[:min(num_to_save, reference_images.size(0))],
-        f"{results_dir}/reference_mnist.png",
+        f"{results_dir}/reference_cifar10.png",
         nrow=8,
         normalize=False
     )
@@ -187,8 +182,11 @@ def generate_images(G, latent_dim, device):
 
 if __name__ == "__main__":
 
-    G = Generator(latent_dim).to(device)
-    D = Discriminator().to(device)
+    channels=3
+    image_size=32
+    
+    G = Generator(latent_dim, channels=channels, image_size=image_size).to(device)
+    D = Discriminator(channels=channels, image_size=image_size).to(device)
 
     generator_losses = []
     discriminator_losses = []
@@ -272,18 +270,17 @@ if __name__ == "__main__":
     G = Generator(latent_dim).to(device)
     G.eval()
 
-    # This generates num_generated fake images in batches, rather than generating all of them at once.
     num_generated = config["num_generated"]
-
     all_generated = []
 
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+
     with torch.no_grad():
-
-        for _ in range(0, num_generated, config["batch_size"]):
-
+        for start in range(0, num_generated, config["batch_size"]):
             batch_size = min(
                 config["batch_size"],
-                num_generated - len(all_generated)
+                num_generated - start
             )
 
             z = torch.randn(
@@ -295,37 +292,29 @@ if __name__ == "__main__":
             )
 
             fake = G(z)
-
             all_generated.append(fake.cpu())
 
     generated = torch.cat(all_generated)
 
     if device.type == "cuda":
+        peak_memory = torch.cuda.max_memory_allocated(device)
+        print(f"Peak GPU memory: {peak_memory / 1024**3:.2f} GB")
 
-        peak_memory = torch.cuda.max_memory_allocated()
+    # Convert from [-1, 1] to [0, 1].
+    generated = ((generated + 1) / 2).clamp(0, 1)
 
-        print(
-            f"Peak GPU memory: "
-            f"{peak_memory / 1024**3:.2f} GB"
-        )
-
-    #  Normalize generated images to the range [0, 1] for FID computation.
-    generated = (generated + 1) / 2
     reference_images = []
-
     for images, _ in reference_dataloader:
         reference_images.append(images)
 
     reference_images = torch.cat(reference_images)
-    reference_images = (reference_images + 1) / 2
+    reference_images = ((reference_images + 1) / 2).clamp(0, 1)
 
     compute_fid(reference_images, generated)
-    
-    #  Set the generator to evaluation mode before generating new images.
-    G.eval()
-
-    generated, generation_time = generate_images(G, latent_dim, device)
-    print(f"Generation time: {generation_time:.4f} seconds")
 
     save_and_plot_generated(generated, reference_images, results_dir)
-    plot_training_losses(generator_losses, discriminator_losses, results_dir)
+    plot_training_losses(
+        generator_losses,
+        discriminator_losses,
+        results_dir
+    )
