@@ -1,0 +1,34 @@
+defaults:
+  num_epochs: 30 # Number of training epochs. Longer can improve results.
+  batch_size: 32 # Number of samples per batch during training.
+  size_train_dataset: 20000 # Number of samples in the training dataset.
+  size_reference_dataset: 64 # Number of samples in the reference dataset.
+  size_generated_dataset: 32 # Number of samples in the generated dataset.
+  num_generated: 100 # Number of samples to generate during evaluation.
+  betas: [0.5, 0.999] # Betas for the Adam Optimizer.
+  channels: 3 # Number of color channels in the input images.
+
+dcgan:
+  data_dir: "./data"
+  results_dir: "demo_dcgan/results/"
+  size_reference_dataset: 128
+  latent_dim: 100 # Dimensionality of the latent space.
+  size_generated_dataset: 64
+  learning_rate_G: 0.0002
+  learning_rate_D: 0.0002
+
+basic_autoencoder:
+  data_dir: "./data"
+  results_dir: "demo_basic_autoencoder/results/"
+  latent_dim: 512
+  learning_rate: 0.0005
+  size_reference_dataset: 128
+  size_generated_dataset: 64
+
+vae:
+  data_dir: "./data"
+  results_dir: "demo_vae/results/"
+  latent_dim: 256 # Dimensionality of the latent space.
+  learning_rate: 0.0005
+  size_reference_dataset: 128
+  size_generated_dataset: 64

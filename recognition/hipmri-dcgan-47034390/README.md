@@ -53,6 +53,14 @@ For example:
     │ Memorization audit │
 -->
 
+<!-- What to include in your report
+- Uncurated grids from multiple seeds.
+- A distribution embedding if applicable to your model.
+- Three to five genuine failure cases with explanations.
+- A nearest-neighbour comparison grid and similarity statistics.
+- A conclusion discussing diversity, anatomical quality, possible memorization, and limitations
+-->
+
 We are first starting with DCGAN. Use the HipMRI 2D slices (`keras_slices_data`)
 Reasonably clear image with SSIM > 0.6.
 

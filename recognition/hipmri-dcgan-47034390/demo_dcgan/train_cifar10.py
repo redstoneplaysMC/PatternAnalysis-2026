@@ -8,10 +8,19 @@ from torchvision.utils import save_image
 from pathlib import Path
 from modules_cifar10 import Generator, Discriminator, compute_fid
 import yaml
+from utils_cifar10 import save_generated_samples, save_and_plot_generated, plot_training_losses
 
-with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
+with CONFIG_PATH.open("r") as f:
+    all_config = yaml.safe_load(f)
+
+config = {
+    **all_config["defaults"],
+    **all_config["dcgan"],
+}
+
+data_dir = Path(config["data_dir"])
 results_dir = Path(config["results_dir"]) / "cifar10"
 results_dir.mkdir(parents=True, exist_ok=True)
 num_to_save = max(64, config["num_generated"])
@@ -23,7 +32,7 @@ transform = transforms.Compose([
 
 train_dataset = Subset(
     datasets.CIFAR10(
-        root="./data",
+        root=data_dir,
         train=True,
         download=True,
         transform=transform
@@ -31,22 +40,22 @@ train_dataset = Subset(
     range(config["size_train_dataset"])
 )
 
-train_dataloader = DataLoader(
-    # Create a DataLoader for the training dataset with the specified batch size and shuffling
-    train_dataset,
-    batch_size=config["batch_size"],
-    shuffle=True
-)
-
 reference_dataset = Subset(
     datasets.CIFAR10(
         # Create the reference dataset for evaluation purposes
-        root="./data",
+        root=data_dir,
         train=False,
         download=True,
         transform=transform
     ),
     range(config["size_reference_dataset"])
+)
+
+train_dataloader = DataLoader(
+    # Create a DataLoader for the training dataset with the specified batch size and shuffling
+    train_dataset,
+    batch_size=config["batch_size"],
+    shuffle=True
 )
 
 reference_dataloader = DataLoader(
@@ -63,7 +72,6 @@ print("Device:", device)
 if device.type == "cuda":
     torch.cuda.reset_peak_memory_stats()
     print(torch.cuda.get_device_name(0))
-    
 
 latent_dim = config["latent_dim"]
 
@@ -74,111 +82,6 @@ print(labels.shape)
 print(images.min())
 print(images.max())
 
-def save_generated_samples(G, epoch, latent_dim, device, results_dir, batch_size):
-    # epoch-level visualization of generated samples
-    G.eval()
-
-    with torch.no_grad():
-        z = torch.randn(batch_size, latent_dim, 1, 1, device=device)
-        generated = G(z).cpu()
-
-    G.train()
-
-    fig, axes = plt.subplots(4, 4, figsize=(6, 6))
-
-    for i, ax in enumerate(axes.flat):
-        ax.imshow(generated[i].permute(1, 2, 0) * 0.5 + 0.5)
-        ax.axis("off")
-
-    fig.savefig(
-        results_dir / f"epoch_{epoch:02d}.png",
-        bbox_inches="tight"
-    )
-    plt.close(fig)
-
-
-def save_and_plot_generated(generated, reference_images, results_dir):
-    
-    torch.save(
-        generated,
-        results_dir / "generated_images.pt"
-    )
-
-    torch.save(
-        reference_images,
-        results_dir / "reference_images.pt"
-    )
-    
-    save_image(
-        generated[:min(num_to_save, generated.size(0))],
-        f"{results_dir}/generated_cifar10.png",
-        nrow=8,
-        normalize=False
-    )
-
-    save_image(
-        reference_images[:min(num_to_save, reference_images.size(0))],
-        f"{results_dir}/reference_cifar10.png",
-        nrow=8,
-        normalize=False
-    )
-
-def plot_training_losses(generator_losses, discriminator_losses, results_dir):
-    # PLOTTING
-    plt.figure()
-    plt.plot(
-        generator_losses,
-        label="Generator"
-    )
-
-    plt.plot(
-        discriminator_losses,
-        label="Discriminator"
-    )
-
-    plt.xlabel("Training iteration")
-    plt.ylabel("Loss")
-    plt.legend()
-
-    plt.savefig(
-        f"{results_dir}/training_losses.png",
-        dpi=150,
-        bbox_inches="tight"
-    )
-
-    fig, ax = plt.subplots()
-
-    ax.plot(generator_losses, label="Generator")
-    ax.plot(discriminator_losses, label="Discriminator")
-
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss")
-    ax.set_title("DCGAN Training Loss")
-    ax.legend()
-
-    fig.savefig(
-        results_dir / "training_losses.png",
-        bbox_inches="tight"
-    )
-
-    plt.close(fig)
-    
-def generate_images(G, latent_dim, device):
-    if device.type == "cuda":
-        torch.cuda.synchronize()
-
-    start = time.perf_counter()
-
-    with torch.no_grad():
-        z = torch.randn(16, latent_dim, 1, 1, device=device)
-        generated = G(z)
-
-    if device.type == "cuda":
-        torch.cuda.synchronize()
-
-    generation_time = time.perf_counter() - start
-
-    return generated, generation_time
 
 if __name__ == "__main__":
 
@@ -267,10 +170,13 @@ if __name__ == "__main__":
         "epoch": config["num_epochs"],
     }, results_dir / "checkpoint.pth")
 
-    G = Generator(latent_dim).to(device)
+    # Save generated images and comparison plot.
+    generated_dir = results_dir / "generated-images"
+    generated_dir.mkdir(parents=True, exist_ok=True)
+
     G.eval()
 
-    num_generated = config["num_generated"]
+    num_generated = 16
     all_generated = []
 
     if device.type == "cuda":
@@ -284,37 +190,58 @@ if __name__ == "__main__":
             )
 
             z = torch.randn(
-                batch_size,
-                latent_dim,
-                1,
-                1,
-                device=device
+                batch_size, latent_dim, 1, 1, device=device
             )
 
-            fake = G(z)
-            all_generated.append(fake.cpu())
+            all_generated.append(G(z).cpu())
 
     generated = torch.cat(all_generated)
+    generated = ((generated + 1) / 2).clamp(0, 1)
+
+    # Get 16 reference images.
+    reference_images, _ = next(iter(reference_dataloader))
+    reference_images = reference_images[:16]
+    reference_images = ((reference_images + 1) / 2).clamp(0, 1)
+
+    # Plot 16 reference images on the left and 16 generated images on the right.
+    fig, axes = plt.subplots(4, 8, figsize=(12, 6))
+
+    for i in range(16):
+        row = i // 4
+        col = i % 4
+
+        axes[row, col].imshow(
+            reference_images[i].permute(1, 2, 0)
+        )
+        axes[row, col].axis("off")
+
+        axes[row, col + 4].imshow(
+            generated[i].permute(1, 2, 0)
+        )
+        axes[row, col + 4].axis("off")
+
+    axes[0, 1].set_title("Reference", pad=12)
+    axes[0, 5].set_title("Generated (DC-GAN)", pad=12)
+
+    plt.tight_layout()
+    plt.savefig(
+        generated_dir / "reference_vs_generated.png",
+        dpi=150,
+        bbox_inches="tight"
+    )
+    plt.show()
+    plt.close(fig)
+
+    # Save generated images individually as a grid.
+    save_image(
+        generated,
+        generated_dir / "generated_grid.png",
+        nrow=4
+    )
 
     if device.type == "cuda":
         peak_memory = torch.cuda.max_memory_allocated(device)
         print(f"Peak GPU memory: {peak_memory / 1024**3:.2f} GB")
 
-    # Convert from [-1, 1] to [0, 1].
-    generated = ((generated + 1) / 2).clamp(0, 1)
-
-    reference_images = []
-    for images, _ in reference_dataloader:
-        reference_images.append(images)
-
-    reference_images = torch.cat(reference_images)
-    reference_images = ((reference_images + 1) / 2).clamp(0, 1)
-
     compute_fid(reference_images, generated)
-
-    save_and_plot_generated(generated, reference_images, results_dir)
-    plot_training_losses(
-        generator_losses,
-        discriminator_losses,
-        results_dir
-    )
+    plot_training_losses(generator_losses, discriminator_losses, results_dir)

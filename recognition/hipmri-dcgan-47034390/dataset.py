@@ -69,7 +69,8 @@ def load_data_2D ( imageNames , normImage =False , categorical =False , dtype =n
 
 class HipMRIDataset(torch.utils.data.Dataset):
     def __init__(self, imageNames, normImage=False, categorical=False, dtype=np.float32, getAffines=False, early_stop=False, data_dir=None):
-        """Init for the hipMRI dataset class.
+        """Init for the hipMRI dataset class. This class should be the main thing that is called when using the 
+        DCGAN/Autoencoder for hipMRI data. It should be shared between both classes.
 
         Args:
             imageNames (list of str): List of paths to the NIfTI image files.
