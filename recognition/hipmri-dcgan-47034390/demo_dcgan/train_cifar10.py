@@ -6,9 +6,9 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 from torchvision.utils import save_image
 from pathlib import Path
-from modules_cifar10 import Generator, Discriminator, compute_fid
+from modules import Generator, Discriminator, compute_fid
 import yaml
-from utils_cifar10 import save_generated_samples, save_and_plot_generated, plot_training_losses
+from utils import save_generated_samples, save_and_plot_generated, plot_training_losses
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 

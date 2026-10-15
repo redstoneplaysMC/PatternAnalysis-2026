@@ -1,17 +1,19 @@
-import os
+from random import Random, seed
+
 import torch
-import random
 import numpy as np
 import nibabel as nib
 from tqdm import tqdm
-from PIL import Image, ImageEnhance
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from typing import cast
 import nibabel as nib
 from nibabel.nifti1 import Nifti1Image
+from pathlib import Path
+import re
+import yaml
 
 valid_extensions = ('.nii', '.nii.gz', '.png', '.jpg', '.jpeg', '.npy', '.npz')
-
+    
 def to_channels (arr: np. ndarray , dtype =np. uint8 ) -> np. ndarray:
     channels = np. unique ( arr)
     res = np. zeros (arr. shape + (len( channels ) ,), dtype = dtype )
@@ -67,92 +69,133 @@ def load_data_2D ( imageNames , normImage =False , categorical =False , dtype =n
     else:
         return images
 
-class HipMRIDataset(torch.utils.data.Dataset):
-    def __init__(self, imageNames, normImage=False, categorical=False, dtype=np.float32, getAffines=False, early_stop=False, data_dir=None):
-        """Init for the hipMRI dataset class. This class should be the main thing that is called when using the 
-        DCGAN/Autoencoder for hipMRI data. It should be shared between both classes.
+class HipMRIDataset(Dataset):
+    def __init__(
+        self,
+        data_dir,
+        max_images=None,
+        norm_image=True,
+        dtype=np.float32,
+        week=None,
+        cases=None,
+    ):
+        self.data_dir = Path(data_dir)
+        self.norm_image = norm_image
+        self.dtype = dtype
 
-        Args:
-            imageNames (list of str): List of paths to the NIfTI image files.
-            normImage (bool, optional): Whether to normalize the image data. Defaults to False.
-            categorical (bool, optional): Whether to convert images to categorical format. Defaults to False.
-            dtype (data-type, optional): Desired data type of the loaded images. Defaults to np.float32.
-            getAffines (bool, optional): Whether to return the affine matrices along with the images. Defaults to False.
-            early_stop (bool, optional): Whether to stop loading after a few images for quick testing. Defaults to False.
-            data_dir (str, optional): Directory containing the image files. Defaults to None.
-        """
-        self.data_dir = data_dir
-        self.images = load_data_2D(imageNames, normImage=normImage, categorical=categorical, dtype=dtype, getAffines=getAffines, early_stop=early_stop)
-        if getAffines:
-            self.images, self.affines = self.images
-        else:
-            self.affines = None
+        self.image_paths = sorted(
+            p for p in self.data_dir.rglob("*.nii.gz")
+            if p.is_file()
+            and re.search(r"case_\d+_week_4_slice_\d+", p.name)
+        )
+
+        # Filter by week and/or case using filenames.
+        filtered_paths = []
+
+        for path in self.image_paths:
+            match = re.search(
+                r"case_(\d+)_week_(\d+)_slice_(\d+)",
+                path.name,
+            )
+
+            if match is None:
+                continue
+
+            case_id = int(match.group(1))
+            week_id = int(match.group(2))
+
+            if week is not None and week_id != week:
+                continue
+
+            if cases is not None and case_id not in cases:
+                continue
+
+            filtered_paths.append(path)
+
+        self.image_paths = filtered_paths
+
+        if max_images is not None:
+            self.image_paths = self.image_paths[:max_images]
+
+        if not self.image_paths:
+            raise ValueError(
+                "No matching NIfTI files found. "
+                "Check data_dir, week and cases."
+            )
+
+        self.slice_indices = []
+
+        for file_idx, path in enumerate(self.image_paths):
+            img = nib.load(str(path))
+
+            if len(img.shape) == 2: #type:ignore
+                num_slices = 1
+            elif len(img.shape) == 3: #type:ignore
+                num_slices = img.shape[2] #type:ignore
+            else:
+                raise ValueError(
+                    f"Unexpected NIfTI shape {img.shape}: {path}" #type:ignore
+                )
+
+            self.slice_indices.extend(
+                (file_idx, slice_idx)
+                for slice_idx in range(num_slices)
+            )
+
+        print(f"NIfTI files found: {len(self.image_paths)}")
+        print(f"2D slices indexed: {len(self.slice_indices)}")
 
     def __len__(self):
-        return len(self.images)
+        return len(self.slice_indices)
 
     def __getitem__(self, idx):
-        if self.affines is not None:
-            return self.images[idx], self.affines[idx]
-        return self.images[idx]
+        file_idx, slice_idx = self.slice_indices[idx]
+        path = self.image_paths[file_idx]
 
-    def normalize_images(self):
-        pass
+        img = nib.load(str(path))
+        data = img.dataobj #type:ignore
 
-    def search_for_nifti_files(self):
-        pass
+        if len(img.shape) == 2: #type:ignore
+            image = np.asarray(data, dtype=self.dtype)
+        else:
+            image = np.asarray(
+                data[:, :, slice_idx],
+                dtype=self.dtype,
+            )
+
+        if self.norm_image:
+            low, high = np.percentile(image, [1, 99])
+            image = np.clip(image, low, high)
+
+            if high > low:
+                image = (
+                    2.0 * (image - low) / (high - low) - 1.0
+                )
+            else:
+                image = np.zeros_like(image)
+
+        image = np.ascontiguousarray(image[None, :, :])
+        return torch.from_numpy(image)
+
+# def normalize(tensor):
+#     """
+#     Normalize tensor from [0, 1] to [-1, 1]
     
+#     Args:
+#         tensor: Image tensor in range [0, 1]
+#     Returns:
+#         Normalized tensor in range [-1, 1]
+#     """
+#     return tensor * 2 - 1
+
+# # Converting images back too 0,1 range so they may be saved and displayed correctly
+# def denormalize(tensor):
+#     """
+#     Denormalize tensor from [-1, 1] to [0, 1]
     
-    # def __setitem__(self, idx, value):
-    #     self.images[idx] = value
-    #     if self.affines is not None and isinstance(value, tuple):
-    #         self.affines[idx] = value[1]
-
-def normalize(tensor):
-    """
-    Normalize tensor from [0, 1] to [-1, 1]
-    
-    Args:
-        tensor: Image tensor in range [0, 1]
-    Returns:
-        Normalized tensor in range [-1, 1]
-    """
-    return tensor * 2 - 1
-
-# Converting images back too 0,1 range so they may be saved and displayed correctly
-def denormalize(tensor):
-    """
-    Denormalize tensor from [-1, 1] to [0, 1]
-    
-    Args:
-        tensor: Image tensor in range [-1, 1]
-    Returns:
-        Denormalized tensor in range [0, 1]
-    """
-    return (tensor + 1) / 2
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
-    imageNames = [
-        "test_input/case_040_week_0_slice_0.nii.gz",
-        "test_input/case_004_week_0_slice_0.nii.gz"
-    ]
-    images = load_data_2D(imageNames, getAffines=False, normImage=False, categorical=False, dtype=np.float32, early_stop=False)
-    # images = load_data_2D(imageNames, getAffines=False, normImage=True, categorical=False, dtype=np.float32, early_stop=False)
-    # print(images.shape)
-    print(images[0])
-
-    plt.figure(figsize=(10, 5))
-
-    plt.subplot(1, 2, 1)
-    plt.imshow(images[0], cmap="gray")
-    plt.title("MRI")
-    plt.axis("off")
-
-    plt.subplot(1, 2, 2)
-    plt.imshow(images[1], cmap="gray")
-    plt.title("MRI 2")
-    plt.axis("off")
-
-    plt.show()
+#     Args:
+#         tensor: Image tensor in range [-1, 1]
+#     Returns:
+#         Denormalized tensor in range [0, 1]
+#     """
+#     return (tensor + 1) / 2

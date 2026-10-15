@@ -1,106 +1,113 @@
-"""
-This should run AFTER a trained model exists. The generator will be used to create new MRI samples and visualize them.
-Prediction and Visualization Script for Trained WGAN-GP Model (Use DC-GAN Generator)
-
-This script loads your trained generator and creates comprehensive visualizations:
-- Random generated samples
-- Latent space interpolations
-- Comparisons with real MRI images
-- SSIM quality metrics
-- Statistical analysis
-
-Usage: python predict.py
-"""
-# See Example code for how to implement this, but don't do it exactly
-
-import os
 import torch
-import numpy as np
 import matplotlib.pyplot as plt
-import json
-import math
+from pathlib import Path
+import yaml
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
+from torch.utils.data import DataLoader, Subset
+from modules import Generator
+from dataset import HipMRIDataset
 
-# Model parameters (must match training configuration)
-latent_dim = 128        # Size of the random noise vector
-img_size = 128          # Output image size (128x128 pixels)
-img_channels = 1        # Grayscale MRI images
+import random
 
-# Set device (use GPU if available, otherwise CPU)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+CONFIG_PATH = Path(__file__).resolve().parent / "config.yaml"
 
-# ============================================================
-# LOAD TRAINED MODEL
-# ============================================================
+with CONFIG_PATH.open("r") as f:
+    all_config = yaml.safe_load(f)
 
-# Initialize the generator with the same architecture used in training
-# generator = Generator(latent_dim=latent_dim, img_channels=img_channels).to(device)
+config = {
+    **all_config["defaults"],
+    **all_config["hipmri_dcgan"],
+}
 
-# Try to load the best model (highest SSIM), fallback to final model if not found
-model_path = 'checkpoints/best_model.pth'
-if not os.path.exists(model_path):
-    model_path = 'checkpoints/final_model.pth'
-    print(f"Best model not found, using final model instead")
+data_dir = Path(config["data_dir"])
+if not data_dir.is_absolute():
+    data_dir = CONFIG_PATH.parent / data_dir
 
-# Load the saved weights
-checkpoint = torch.load(model_path, map_location=device, weights_only=False)
-# generator.load_state_dict(checkpoint['generator_state_dict'])
-# generator.eval()  # Set to evaluation mode (disables dropout, etc.)
+results_dir = Path(config["results_dir"])
+if not results_dir.is_absolute():
+    results_dir = CONFIG_PATH.parent / results_dir
 
-# Display model info if available
-if 'ssim' in checkpoint:
-    print(f"Model validation SSIM: {checkpoint['ssim']:.4f}")
-if 'epoch' in checkpoint:
-    print(f"Trained for {checkpoint['epoch']+1} epochs")
+# Match the checkpoint path used by your training script.
+checkpoint_path = results_dir / "checkpoint.pth"
 
-print(f"Model loaded from: {model_path}")
+if not checkpoint_path.exists():
+    raise FileNotFoundError(
+        f"Checkpoint not found: {checkpoint_path}"
+    )
+
+device = torch.device(
+    "cuda" if torch.cuda.is_available() else "cpu"
+)
+latent_dim = config["latent_dim"]
+
+checkpoint = torch.load(
+    checkpoint_path,
+    map_location=device,
+    weights_only=False,
+)
+
+G = Generator(latent_dim=latent_dim, channels=1).to(device)
+G.load_state_dict(checkpoint["generator"])
+G.eval()
+
+dataset = HipMRIDataset(
+    data_dir=data_dir,
+    max_images=config.get("max_train_images"),
+    norm_image=config.get("norm_image", True),
+    week=4,
+)
+
+count = min(16, len(dataset))
+indices = random.sample(range(len(dataset)), count)
+
+dataloader = DataLoader(
+    Subset(dataset, indices),
+    batch_size=count,
+    shuffle=False,
+)
+
+real_images = next(iter(dataloader)).to(device)
+
+# Generate the same number of images as the reference batch.
+with torch.no_grad():
+    z = torch.randn(count, latent_dim, 1, 1, device=device)
+    generated = G(z)
+
+fig, axes = plt.subplots(4, 8, figsize=(16, 9))
+
+for i in range(16):
+    row = i // 4
+    col = i % 4
+
+    # Real images: columns 0–3
+    axes[row, col].imshow(
+        real_images[i, 0].cpu().numpy(),
+        cmap="gray",
+        vmin=-1,
+        vmax=1,
+    )
+    axes[row, col].axis("off")
+
+    # Generated images: columns 4–7
+    axes[row, col + 4].imshow(
+        generated[i, 0].cpu().numpy(),
+        cmap="gray",
+        vmin=-1,
+        vmax=1,
+    )
+    axes[row, col + 4].axis("off")
+
+axes[0, 1].set_title("REAL", pad=12)
+axes[0, 5].set_title("GENERATED", pad=12)
 
 
-# ============================================================
-# LOAD TRAINING HISTORY (if available)
-# ============================================================
+output_path = results_dir / "real_vs_generated.png"
+output_path.parent.mkdir(parents=True, exist_ok=True)
 
-# history_path = 'outputs/training_history.json'
-# if os.path.exists(history_path):
-#     with open(history_path, 'r') as f:
-#         history = json.load(f)
-    
-#     print(f"\nTraining History Summary:")
-#     print(f"  Total epochs: {len(history['epochs'])}")
-#     print(f"  Final G Loss: {history['g_loss'][-1]:.4f}")
-#     print(f"  Final C Loss: {history['c_loss'][-1]:.4f}")
-#     if history['val_ssim']:
-#         print(f"  Best Val SSIM: {max(history['val_ssim']):.4f}")
+plt.tight_layout()
+plt.savefig(output_path, dpi=150, bbox_inches="tight")
+plt.show()
 
-
-# ============================================================
-# HELPER FUNCTION: Create image grid for visualization
-# ============================================================
-
-# ============================================================
-# GENERATE RANDOM SAMPLES
-# ============================================================
-
-# ============================================================
-# LATENT SPACE INTERPOLATION
-# ============================================================
-
-
-# ============================================================
-# COMPARISON WITH REAL IMAGES
-# ============================================================
-
-# ============================================================
-# SAVE HIGH-QUALITY INDIVIDUAL SAMPLES
-# ============================================================
-
-# ============================================================
-# INTENSITY STATISTICS
-# ============================================================
-
-# ============================================================
-# FINAL SUMMARY
-# ============================================================
+print(f"Comparison saved to: {output_path}")
+print(f"Real image batch shape: {real_images.shape}")
+print(f"Generated batch shape: {generated.shape}")

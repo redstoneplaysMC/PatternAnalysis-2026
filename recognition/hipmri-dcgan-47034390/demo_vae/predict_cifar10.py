@@ -5,7 +5,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 import yaml
 
-from modules_cifar10 import Encoder, Decoder, reparameterize
+from demo_vae.modules_cifar10 import Encoder, Decoder, reparameterize
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
 
@@ -79,4 +79,32 @@ for i in range(16):
 
 plt.tight_layout()
 plt.savefig(results_dir / "reconstruction.png") 
+plt.show()
+
+# Generate new images from random latent vectors. Will be low quality.
+
+latent_dim = 256
+
+encoder = Encoder(latent_dim=latent_dim).to(device)
+decoder = Decoder(latent_dim=latent_dim).to(device)
+
+encoder.load_state_dict(checkpoint["encoder"])
+decoder.load_state_dict(checkpoint["decoder"])
+
+num_images = 16
+
+with torch.no_grad():
+    z = torch.randn(num_images, latent_dim, device=device)
+    generated = decoder(z)
+
+fig, axes = plt.subplots(4, 4, figsize=(8, 8))
+fig.suptitle("Generated Images, VAE")
+
+for i, ax in enumerate(axes.flat):
+    image = ((generated[i].cpu().permute(1, 2, 0) + 1) / 2).clamp(0, 1)
+    ax.imshow(image)
+    ax.axis("off")
+
+plt.tight_layout()
+plt.savefig(results_dir / "generated.png")
 plt.show()

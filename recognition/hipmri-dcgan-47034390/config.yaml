@@ -1,5 +1,5 @@
 defaults:
-  num_epochs: 30 # Number of training epochs. Longer can improve results.
+  num_epochs: 20 # Number of training epochs. Longer can improve results.
   batch_size: 32 # Number of samples per batch during training.
   size_train_dataset: 20000 # Number of samples in the training dataset.
   size_reference_dataset: 64 # Number of samples in the reference dataset.
@@ -17,14 +17,6 @@ dcgan:
   learning_rate_G: 0.0002
   learning_rate_D: 0.0002
 
-basic_autoencoder:
-  data_dir: "./data"
-  results_dir: "demo_basic_autoencoder/results/"
-  latent_dim: 512
-  learning_rate: 0.0005
-  size_reference_dataset: 128
-  size_generated_dataset: 64
-
 vae:
   data_dir: "./data"
   results_dir: "demo_vae/results/"
@@ -32,3 +24,17 @@ vae:
   learning_rate: 0.0005
   size_reference_dataset: 128
   size_generated_dataset: 64
+
+hipmri_dcgan:
+  data_dir: "./data/keras_slices_train"
+  results_dir: "./results"
+  num_epochs: 20 # Number of training epochs. Longer can improve results.
+  latent_dim: 100 # Dimensionality of the latent space.
+  max_train_images: 200 # Maximum number of training images to use.
+  norm_image: true
+  batch_size: 8
+  size_reference_dataset: 64
+  size_generated_dataset: 32
+  learning_rate_G: 0.0002
+  learning_rate_D: 0.00005 # Lower discriminator rate.
+  week: 4

@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
-from modules_cifar10 import Generator
+from modules import Generator
 
 # Given an existing .pth file (trained Generator), generate a set of images via DCGAN.
 

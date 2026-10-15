@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 from pathlib import Path
-from modules_cifar10 import Encoder, Decoder, compute_fid, reparameterize
-from utils_cifar10 import plot_training_losses, save_and_plot_generated
+from demo_vae.modules_cifar10 import Encoder, Decoder, compute_fid, reparameterize
+from demo_vae.utils_cifar10 import plot_training_losses, save_and_plot_generated
 import yaml
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.yaml"
@@ -221,6 +221,5 @@ if __name__ == "__main__":
     plot_training_losses(
         reconstruction_losses, #type:ignore
         total_losses, #type:ignore
-        kl_losses, #type:ignore
         results_dir
     )
