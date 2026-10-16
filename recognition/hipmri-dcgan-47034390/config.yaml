@@ -24,33 +24,33 @@ vae:
   size_reference_dataset: 128
   size_generated_dataset: 64
 
-hipmri_dcgan:
-  # data_dir: "./data/keras_slices_train"
-  data_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_train/"
-  results_dir: "./results"
-  num_epochs: 50 # Number of training epochs. Longer can improve results.
-  latent_dim: 100 # Dimensionality of the latent space.
-  max_train_images: 1000 # Maximum number of training images to use.
-  norm_image: true
-  batch_size: 16
-  size_reference_dataset: 64
-  size_generated_dataset: 32
-  learning_rate_G: 0.0002
-  learning_rate_D: 0.00005 # Lower discriminator rate.
-  week: 4
-
-# CPU TESTING CONFIGURATION
+# RANGPUR VERSION
 # hipmri_dcgan:
 #   # data_dir: "./data/keras_slices_train"
 #   data_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_train/"
 #   results_dir: "./results"
-#   num_epochs: 20 # Number of training epochs. Longer can improve results.
+#   num_epochs: 50 # Number of training epochs. Longer can improve results.
 #   latent_dim: 100 # Dimensionality of the latent space.
-#   max_train_images: 200 # Maximum number of training images to use.
+#   max_train_images: 11460 # Maximum number of training images to use.
 #   norm_image: true
-#   batch_size: 8
+#   batch_size: 16
 #   size_reference_dataset: 64
 #   size_generated_dataset: 32
 #   learning_rate_G: 0.0002
 #   learning_rate_D: 0.00005 # Lower discriminator rate.
-#   week: 4
+#   week: null
+
+# CPU TESTING VERSION
+hipmri_dcgan:
+  data_dir: "./data/keras_slices_train"
+  results_dir: "./results"
+  num_epochs: 20 # Number of training epochs. Longer can improve results.
+  latent_dim: 100 # Dimensionality of the latent space.
+  max_train_images: 200 # Maximum number of training images to use.
+  norm_image: true
+  batch_size: 8
+  size_reference_dataset: 64
+  size_generated_dataset: 32
+  learning_rate_G: 0.0002
+  learning_rate_D: 0.00005 # Lower discriminator rate.
+  week: null

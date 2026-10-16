@@ -115,7 +115,7 @@ The following is the list of python dependencies required to run this project.
 -   tqdm
 -   typing
 -   nibabel
-
+-   re
 To ensure reproducible results, use the following seeds:
 ```
 torch.random_seed()

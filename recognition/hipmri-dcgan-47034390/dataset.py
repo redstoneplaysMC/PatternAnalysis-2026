@@ -86,7 +86,6 @@ class HipMRIDataset(Dataset):
         self.image_paths = sorted(
             p for p in self.data_dir.rglob("*.nii.gz")
             if p.is_file()
-            and re.search(r"case_\d+_week_4_slice_\d+", p.name)
         )
 
         # Filter by week and/or case using filenames.
@@ -125,7 +124,9 @@ class HipMRIDataset(Dataset):
         self.slice_indices = []
 
         for file_idx, path in enumerate(self.image_paths):
-            img = nib.load(str(path))
+            # Image pre-processing. There are some images of size (256, 144) that need to be cropped to (256, 128).
+            # img = nib.load(str(path))
+            img = nib.load(str(path)).get_fdata(dtype=np.float32) #type:ignore
 
             if len(img.shape) == 2: #type:ignore
                 num_slices = 1
@@ -135,6 +136,17 @@ class HipMRIDataset(Dataset):
                 raise ValueError(
                     f"Unexpected NIfTI shape {img.shape}: {path}" #type:ignore
                 )
+
+            # Hard-coded cropping; not the best practice.
+            if img.shape == (256, 144):
+                img = img[:, 8:136]
+    
+            if img.shape != (256, 128):
+                raise ValueError(
+                    f"Unexpected image shape {img.shape}: {path}"
+                )
+
+            assert img.shape == (256, 128), img.shape
 
             self.slice_indices.extend(
                 (file_idx, slice_idx)
@@ -176,29 +188,6 @@ class HipMRIDataset(Dataset):
         image = np.ascontiguousarray(image[None, :, :])
         return torch.from_numpy(image)
 
-# def normalize(tensor):
-#     """
-#     Normalize tensor from [0, 1] to [-1, 1]
-    
-#     Args:
-#         tensor: Image tensor in range [0, 1]
-#     Returns:
-#         Normalized tensor in range [-1, 1]
-#     """
-#     return tensor * 2 - 1
-
-# # Converting images back too 0,1 range so they may be saved and displayed correctly
-# def denormalize(tensor):
-#     """
-#     Denormalize tensor from [-1, 1] to [0, 1]
-    
-#     Args:
-#         tensor: Image tensor in range [-1, 1]
-#     Returns:
-#         Denormalized tensor in range [0, 1]
-#     """
-#     return (tensor + 1) / 2
-
 if __name__ == "__main__":
     print("This is the dataset module.")
     # Test data loading.
@@ -212,10 +201,19 @@ if __name__ == "__main__":
     }
     data_dir = Path(config["data_dir"])
     results_dir = Path(config["results_dir"])
-    print(f"Expected data_dir: {data_dir}")
-    print(f"Expected results_dir: {results_dir}")
+    print("Data directory:", data_dir)
+    print("Directory exists:", data_dir.exists())
+    print("NIfTI files found:", len(list(data_dir.rglob("*.nii.gz"))))
+    print("Week filter:", config["week"])
+    print("Case filter:", config.get("cases", None))
+    
     results_dir.mkdir(parents=True, exist_ok=True)    
-    dataset = HipMRIDataset(data_dir=data_dir, week=4, cases=None, norm_image=True, dtype=np.float32)
+    dataset = HipMRIDataset(
+        data_dir=data_dir, 
+        week=config["week"], 
+        cases=config.get("cases", None), 
+        norm_image=config.get("norm_image", True), 
+        dtype=np.float32)
     print(f"Dataset length: {len(dataset)}")
     sample = dataset[0]
     print(f"Sample shape: {sample.shape}")

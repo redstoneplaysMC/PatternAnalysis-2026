@@ -54,7 +54,7 @@ dataset = HipMRIDataset(
     data_dir=data_dir,
     max_images=config.get("max_train_images"),
     norm_image=config.get("norm_image", True),
-    week=4,
+    week=config.get("week"),
 )
 
 count = min(16, len(dataset))
@@ -73,47 +73,41 @@ with torch.no_grad():
     z = torch.randn(count, latent_dim, 1, 1, device=device)
     generated = G(z)
 
-
-# Plotting
-
-# Real vs generated comparison
 fig, axes = plt.subplots(4, 8, figsize=(16, 9))
 
 for i in range(16):
-    row, col = i // 4, i % 4
+    row = i // 4
+    col = i % 4
 
+    # Real images: columns 0–3
     axes[row, col].imshow(
         real_images[i, 0].cpu().numpy(),
-        cmap="gray", vmin=-1, vmax=1,
+        cmap="gray",
+        vmin=-1,
+        vmax=1,
     )
     axes[row, col].axis("off")
 
+    # Generated images: columns 4–7
     axes[row, col + 4].imshow(
         generated[i, 0].cpu().numpy(),
-        cmap="gray", vmin=-1, vmax=1,
+        cmap="gray",
+        vmin=-1,
+        vmax=1,
     )
     axes[row, col + 4].axis("off")
 
-axes[0, 1].set_title("REAL")
-axes[0, 5].set_title("GENERATED")
+axes[0, 1].set_title("REAL", pad=12)
+axes[0, 5].set_title("GENERATED", pad=12)
+
+
+output_path = results_dir / "real_vs_generated.png"
+output_path.parent.mkdir(parents=True, exist_ok=True)
 
 plt.tight_layout()
-plt.savefig(results_dir / "real_vs_generated.png", dpi=150)
-plt.close()
+plt.savefig(output_path, dpi=150, bbox_inches="tight")
+# plt.show()
 
-# Generated-only grid to inspect diversity
-fig, axes = plt.subplots(4, 4, figsize=(10, 10))
-
-for i, ax in enumerate(axes.flat):
-    ax.imshow(
-        generated[i, 0].cpu().numpy(),
-        cmap="gray", vmin=-1, vmax=1,
-    )
-    ax.axis("off")
-
-plt.tight_layout()
-plt.savefig(results_dir / "generated_diversity.png", dpi=150)
-plt.show()
-
-print(f"Saved comparison to: {results_dir / 'real_vs_generated.png'}")
-print(f"Saved diversity grid to: {results_dir / 'generated_diversity.png'}")
+print(f"Comparison saved to: {output_path}")
+print(f"Real image batch shape: {real_images.shape}")
+print(f"Generated batch shape: {generated.shape}")

@@ -68,13 +68,13 @@ reference_images = torch.stack([
     dataset[i] for i in range(min(64, len(dataset)))
 ])
 
-save_image(
-    reference_images[::16],
-    results_dir / "reference_grid.png",
-    nrow=4,
-    normalize=True,
-    value_range=(-1, 1),
-)
+# save_image(
+#     reference_images[::16],
+#     results_dir / "reference_grid.png",
+#     nrow=4,
+#     normalize=True,
+#     value_range=(-1, 1),
+# )
 
 # Models: These should support 128*256 Grayscale Images.
 G = Generator(
@@ -203,6 +203,16 @@ torch.save(
 
 # Generate final samples.
 G.eval()
+
+with torch.no_grad():
+    z1 = torch.randn(8, 100, 1, 1)
+    z2 = torch.randn(8, 100, 1, 1)
+
+    images1 = G(z1)
+    images2 = G(z2)
+
+    print(images1.shape)
+    print("Mean difference:", (images1 - images2).abs().mean().item())
 
 with torch.no_grad():
     generated = G(fixed_noise).cpu()
