@@ -119,8 +119,7 @@ class HipMRIDataset(Dataset):
 
         if not self.image_paths:
             raise ValueError(
-                "No matching NIfTI files found. "
-                "Check data_dir, week and cases."
+                "No matching NIfTI files found. Check data_dir, week and cases."
             )
 
         self.slice_indices = []
@@ -199,3 +198,28 @@ class HipMRIDataset(Dataset):
 #         Denormalized tensor in range [0, 1]
 #     """
 #     return (tensor + 1) / 2
+
+if __name__ == "__main__":
+    print("This is the dataset module.")
+    # Test data loading.
+    from pathlib import Path
+    import yaml
+    with open("config.yaml", "r") as f:
+        all_config = yaml.safe_load(f)
+    config = {
+        **all_config["defaults"],
+        **all_config["hipmri_dcgan"],
+    }
+    data_dir = Path(config["data_dir"])
+    results_dir = Path(config["results_dir"])
+    print(f"Expected data_dir: {data_dir}")
+    print(f"Expected results_dir: {results_dir}")
+    results_dir.mkdir(parents=True, exist_ok=True)    
+    dataset = HipMRIDataset(data_dir=data_dir, week=4, cases=None, norm_image=True, dtype=np.float32)
+    print(f"Dataset length: {len(dataset)}")
+    sample = dataset[0]
+    print(f"Sample shape: {sample.shape}")
+    print(f"Sample min: {sample.min().item()}")
+    print(f"Sample max: {sample.max().item()}")
+    print(f"Sample mean: {sample.mean().item()}")
+    print(f"Sample std: {sample.std().item()}")

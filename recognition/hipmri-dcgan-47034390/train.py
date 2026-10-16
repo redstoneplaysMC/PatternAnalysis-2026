@@ -221,11 +221,11 @@ print(
 # Convert [-1, 1] to [0, 1] for saving.
 generated = ((generated + 1) / 2).clamp(0, 1)
 
-save_image(
-    generated[::16],
-    results_dir / "generated_grid.png",
-    nrow=4,
-)
+# save_image(
+#     generated[::16],
+#     results_dir / "generated_grid.png",
+#     nrow=4,
+# )
 
 # Plot generated images.
 fig, axes = plt.subplots(4, 4, figsize=(10, 10))

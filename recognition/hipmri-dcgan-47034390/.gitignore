@@ -1,4 +1,10 @@
+# Dataset files
 data/
+keras_slices*/
+
+# Python cache
 __pycache__/
 *.py[cod]
-/keras_slices*
+
+# Model checkpoints
+*.pth

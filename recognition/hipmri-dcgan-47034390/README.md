@@ -111,6 +111,10 @@ The following is the list of python dependencies required to run this project.
 -   torch
 -   numpy
 -   random
+-   pyYaml
+-   tqdm
+-   typing
+-   nibabel
 
 To ensure reproducible results, use the following seeds:
 ```
