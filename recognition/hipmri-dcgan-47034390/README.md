@@ -116,14 +116,12 @@ The following is the list of python dependencies required to run this project.
 -   typing
 -   nibabel
 -   re
-To ensure reproducible results, use the following seeds:
-```
-torch.random_seed()
-np.random_seed()
-random.seed()
-torch.cuda.manual_seed_all()
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+To ensure reproducible results, in config.yaml, set the seed to 42.
+
+To run the baseline, the following commands were executed:
+```bash
+py -m baseline.train
+py -m baseline.predict
 ```
 
 ## Pre-processing
@@ -157,10 +155,16 @@ The training process was visualized and is shown in the following plots.
 – In-depth qualitative error autopsies analyzing 3–5 representative failure cases from the dataset (diagnosing root triggers and failure modes).
 – Actionable engineering recommendation and trade-off synthesis for your project manager.
 
-
+# Artifical Intellegence Usage disclosure
 <!-- The mandatory Artificial Intelligence Usage Disclosure subsection (see Section 6). -->
-# Responsible Use of AI and Mandatory Disclosure
-Generative AI models are permitted to assist your learning and implementation workflows. However,
+AI tools used: ChatGPT, Github Copilot Autocomplete.
+## Tasks that the AI tools were used for:
+1. abcd
+## AI-code auditing method
+
+
+<!-- # Responsible Use of AI and Mandatory Disclosure -->
+<!-- Generative AI models are permitted to assist your learning and implementation workflows. However,
 the expectations of engineering professionalism apply:
 1. Verification Responsibility: 
     You are 100% personally responsible for every line of code, loss formula, and metric in your submission. 
@@ -171,14 +175,13 @@ the expectations of engineering professionalism apply:
     - What specific tasks AI assisted with (e.g., scaffolding data loading functions, refactoring plotting scripts).
     - How you audited, verified, and empirically tested the AI-suggested code.
 3. Prohibited Misconduct: Copying code from fellow students, reusing previous years’ pull requests,
-or committing unverified AI hallucinations.
+or committing unverified AI hallucinations. -->
 
 <!-- Put the actual AI Disclosure here. -->
 
 # References
 <!-- Put references here. Use the APA Format.-->
 <!-- Reference any websites used to do the assignment. -->
-REFERENCES GO HERE.
 [10] DCGAN, radford et al, [2015]
 https://en.wikipedia.org/wiki/Wasserstein_metric
 https://lilianweng.github.io/posts/2017-08-20-gan/#what-is-wasserstein-distance

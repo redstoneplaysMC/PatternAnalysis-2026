@@ -1,7 +1,11 @@
 import torch
 import matplotlib.pyplot as plt
+from pathlib import Path
+import torch.nn.functional as F
+from torchvision.transforms.functional import resize
+from torchmetrics.image.fid import FrechetInceptionDistance
 
-def save_generated_samples(G, epoch, latent_dim, device, results_dir, batch_size):
+def save_generated_samples(G, epoch, latent_dim, device, results_dir:Path, batch_size):
     G.eval()
 
     with torch.no_grad():
@@ -34,7 +38,7 @@ def save_generated_samples(G, epoch, latent_dim, device, results_dir, batch_size
     plt.close(fig)
 
 def plot_training_losses(generator_losses, discriminator_losses, results_dir):
-    # PLOTTING
+    # Plots the training losses.
     plt.figure()
     plt.plot(
         generator_losses,
@@ -72,92 +76,51 @@ def plot_training_losses(generator_losses, discriminator_losses, results_dir):
     )
 
     plt.close(fig)
-    
 
-"""Init Weights for the network layers
-Parameters: model - the neural network model whose weights need to be initialized
-"""
 
-"""Compute SSIM
-Parameters: img1 - first image
-            img2 - second image
-"""
-import torch.nn.functional as F
+def save_validation_comparison(
+    G,
+    validate_dataloader,
+    epoch,
+    latent_dim,
+    device,
+    results_dir,
+    count=8,
+):
+    G.eval()
+    results_dir = Path(results_dir)
+    results_dir.mkdir(parents=True, exist_ok=True)
 
-def compute_ssim(img1, img2, window_size=11, size_average=True):
-    """
-    Code was copied from samuel2003-coder.
-    Compute Structured Similarity Index (SSIM) between two images
-    
-    Args:
-        img1, img2: Images in range [-1, 1] or [0, 1]
-        window_size: Size of the Gaussian window
-        size_average: Whether to average the SSIM over the batch
-    Returns:
-        SSIM value
-    """
+    # Get real validation images.
+    real_images = next(iter(validate_dataloader))
+    if isinstance(real_images, (tuple, list)):
+        real_images = real_images[0]
 
-    # Constants for stability
-    C1 = 0.01 ** 2
-    C2 = 0.03 ** 2
-    
-    # Create Gaussian window
-    sigma = 1.5
-    gauss = torch.Tensor([
-        torch.exp(torch.tensor(-(x - window_size // 2) ** 2 / float(2 * sigma ** 2)))
-        for x in range(window_size)
-    ])
-    window = gauss / gauss.sum()
-    window = window.unsqueeze(1)
-    window = window.mm(window.t()).float().unsqueeze(0).unsqueeze(0)
-    window = window.to(img1.device)
-    
-    # Ensure images are in [0, 1] range
-    if img1.min() < 0:
-        img1 = (img1 + 1) / 2
-        img2 = (img2 + 1) / 2
-    
-    # Calculate means
-    mu1 = F.conv2d(img1, window, padding=window_size // 2, groups=1)
-    mu2 = F.conv2d(img2, window, padding=window_size // 2, groups=1)
-    
-    mu1_sq = mu1.pow(2)
-    mu2_sq = mu2.pow(2)
-    mu1_mu2 = mu1 * mu2
-    
-    # Calculate variances and covariance
-    sigma1_sq = F.conv2d(img1 * img1, window, padding=window_size // 2, groups=1) - mu1_sq
-    sigma2_sq = F.conv2d(img2 * img2, window, padding=window_size // 2, groups=1) - mu2_sq
-    sigma12 = F.conv2d(img1 * img2, window, padding=window_size // 2, groups=1) - mu1_mu2
-    
-    # SSIM formula
-    ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / \
-               ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
-    
-    if size_average:
-        return ssim_map.mean()
-    else:
-        return ssim_map
+    real_images = real_images[:count].to(device=device, dtype=torch.float32)
 
-# def normalize(tensor):
-#     """
-#     Normalize tensor from [0, 1] to [-1, 1]
-    
-#     Args:
-#         tensor: Image tensor in range [0, 1]
-#     Returns:
-#         Normalized tensor in range [-1, 1]
-#     """
-#     return tensor * 2 - 1
+    # Generate fake images.
+    with torch.no_grad():
+        noise = torch.randn(count, latent_dim, 1, 1, device=device)
+        fake_images = G(noise)
 
-# # Converting images back too 0,1 range so they may be saved and displayed correctly
-# def denormalize(tensor):
-#     """
-#     Denormalize tensor from [-1, 1] to [0, 1]
-    
-#     Args:
-#         tensor: Image tensor in range [-1, 1]
-#     Returns:
-#         Denormalized tensor in range [0, 1]
-#     """
-#     return (tensor + 1) / 2
+    real_images = ((real_images.cpu() + 1) / 2).clamp(0, 1)
+    fake_images = ((fake_images.cpu() + 1) / 2).clamp(0, 1)
+
+    fig, axes = plt.subplots(2, count, figsize=(2 * count, 5))
+
+    for i in range(count):
+        axes[0, i].imshow(real_images[i, 0], cmap="gray", vmin=0, vmax=1)
+        axes[0, i].set_title(f"Real {i + 1}")
+        axes[0, i].axis("off")
+
+        axes[1, i].imshow(fake_images[i, 0], cmap="gray", vmin=0, vmax=1)
+        axes[1, i].set_title(f"Generated {i + 1}")
+        axes[1, i].axis("off")
+
+    axes[0, 0].set_ylabel("Validation", fontsize=11)
+    axes[1, 0].set_ylabel("Generated", fontsize=11)
+
+    fig.suptitle(f"Real vs Generated MRI — Epoch {epoch}")
+    plt.tight_layout()
+    plt.savefig(results_dir / f"comparison_epoch_{epoch:02d}.png", dpi=150)
+    plt.close(fig)

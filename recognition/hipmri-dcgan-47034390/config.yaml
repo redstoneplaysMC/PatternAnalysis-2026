@@ -1,56 +1,67 @@
 defaults:
-  num_epochs: 20 # Number of training epochs. Longer can improve results.
-  batch_size: 32 # Number of samples per batch during training.
-  size_train_dataset: 20000 # Number of samples in the training dataset.
-  size_reference_dataset: 64 # Number of samples in the reference dataset.
-  size_generated_dataset: 32 # Number of samples in the generated dataset.
-  num_generated: 100 # Number of samples to generate during evaluation.
   betas: [0.5, 0.999] # Betas for the Adam Optimizer.
- 
-dcgan:
-  data_dir: "./data"
-  results_dir: "demo_dcgan/results/"
-  size_reference_dataset: 128
-  latent_dim: 100 # Dimensionality of the latent space.
-  size_generated_dataset: 64
-  learning_rate_G: 0.0002
-  learning_rate_D: 0.0002
-
-vae:
-  data_dir: "./data"
-  results_dir: "demo_vae/results/"
-  latent_dim: 256 # Dimensionality of the latent space.
-  learning_rate: 0.0005
-  size_reference_dataset: 128
-  size_generated_dataset: 64
+  seed: 42 # Random seed for reproducibility.
+  norm_image: true # If the image is to be normalized.
+  week: 4 # Week parameter for the dataset.
+  sample_interval: 3 # Interval (in epochs) at which to save generated samples.
+  rangpur: false # Whether to use GPU if available.
+  validate: true # Whether to perform validation during training.
+  validate_every: 10 # Interval (in epochs) at which to perform validation.
+  max_validate_images: 200 # Maximum number of validation images to use.
 
 # RANGPUR VERSION
-# hipmri_dcgan:
-#   # data_dir: "./data/keras_slices_train"
-#   data_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_train/"
-#   results_dir: "./results"
-#   num_epochs: 50 # Number of training epochs. Longer can improve results.
-#   latent_dim: 100 # Dimensionality of the latent space.
-#   max_train_images: 11460 # Maximum number of training images to use.
-#   norm_image: true
-#   batch_size: 16
-#   size_reference_dataset: 64
-#   size_generated_dataset: 32
-#   learning_rate_G: 0.0002
-#   learning_rate_D: 0.00005 # Lower discriminator rate.
-#   week: null
+hipmri_dcgan:
+  data_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_train/"
+  test_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_test/"
+  validate_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_validate/"
+  results_dir: "./results"
+  num_epochs: 50 # Number of training epochs. Longer can improve results.
+  latent_dim: 100 # Dimensionality of the latent space.
+  max_train_images: 11460 # Maximum number of training images to use.
+  batch_size: 16
+  size_reference_dataset: 64
+  size_generated_dataset: 32
+  learning_rate_G: 0.0002
+  learning_rate_D: 0.00005 # Lower discriminator rate.
+
+hipmri_vae:
+  data_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_train/"
+  test_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_test/"
+  validate_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_validate/"
+  results_dir: "./vae_results"
+  num_epochs: 50 # Number of training epochs. Longer can improve results.
+  latent_dim: 100 # Dimensionality of the latent space.
+  max_train_images: 11460 # Maximum number of training images to use.
+  batch_size: 16
+  size_reference_dataset: 64
+  size_generated_dataset: 32
+  learning_rate: 0.0002
+
 
 # CPU TESTING VERSION
-hipmri_dcgan:
+hipmri_dcgan_cpu:
   data_dir: "./data/keras_slices_train"
+  test_dir: "./data/keras_slices_test"
+  validate_dir: "./data/keras_slices_validate"
   results_dir: "./results"
   num_epochs: 20 # Number of training epochs. Longer can improve results.
   latent_dim: 100 # Dimensionality of the latent space.
   max_train_images: 200 # Maximum number of training images to use.
-  norm_image: true
   batch_size: 8
   size_reference_dataset: 64
   size_generated_dataset: 32
   learning_rate_G: 0.0002
   learning_rate_D: 0.00005 # Lower discriminator rate.
-  week: null
+
+hipmri_vae_cpu:
+  data_dir: "./data/keras_slices_train"
+  test_dir: "./data/keras_slices_test"
+  validate_dir: "./data/keras_slices_validate"
+  results_dir: "./baseline_results"
+  num_epochs: 20 # Number of training epochs. Longer can improve results.
+  latent_dim: 100 # Dimensionality of the latent space.
+  max_train_images: 200 # Maximum number of training images to use.
+  batch_size: 8
+  size_reference_dataset: 64
+  size_generated_dataset: 32
+  learning_rate: 0.0002

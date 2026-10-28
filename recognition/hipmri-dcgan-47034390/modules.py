@@ -1,16 +1,14 @@
 # Ts vibe-coded lol. Fix it and make it produce something passable before submitting it to rangpur.
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-"""
-Generator Class: transforms random noise vector into a full sized image through upsampling (Conv2d)
-Parameters: latent_dim - dimension of random noise vector
-            img_channels - number of output image channels in final layer (1 for grayscale)
-            feature_maps - number of feature maps in each convolutional layer
-"""
 class Generator(nn.Module):
     def __init__(self, latent_dim=100, channels=1, image_size=(256, 128)):
+        """
+        Generator Class: transforms random noise vector into a full sized image through upsampling (Conv2d)
+        Parameters: latent_dim - dimension of random noise vector
+                    img_channels - number of output image channels in final layer (1 for grayscale)
+                    feature_maps - number of feature maps in each convolutional layer
+        """
         super().__init__()
 
         if image_size != (256, 128):
@@ -54,12 +52,14 @@ class Generator(nn.Module):
         return self.model(z)
 
 
-"""Critic/Discriminator Class: evaluates the authenticity of an image (real or generated)
-Parameters: img_channels - number of input image channels (1 for grayscale)
-            feature_maps - number of feature maps in each convolutional layer
-"""
+
 class Discriminator(nn.Module):
     def __init__(self, channels=1, image_size=(256, 128)):
+        """
+        Critic/Discriminator Class: evaluates the authenticity of an image (real or generated)
+        Parameters: img_channels - number of input image channels (1 for grayscale)
+                    feature_maps - number of feature maps in each convolutional layer
+        """
         super().__init__()
 
         if image_size != (256, 128):
@@ -87,3 +87,18 @@ class Discriminator(nn.Module):
 
     def forward(self, x):
         return self.features(x)
+
+
+if __name__ == "__main__":
+    # Count the number of trainable parameters; This is the model capacity.
+    G = Generator()
+    D = Discriminator()
+    sum_parameters = 0
+    for name, model in [("Generator", G), ("Discriminator", D)]:
+        total = sum(p.numel() for p in model.parameters())
+        trainable = sum(
+            p.numel() for p in model.parameters() if p.requires_grad
+        )
+        print(f"{name}: {total:,} parameters ({trainable:,} trainable)")
+        sum_parameters += total
+    print(f"Total parameters: {sum_parameters:,} ({sum(p.numel() for p in G.parameters() if p.requires_grad) + sum(p.numel() for p in D.parameters() if p.requires_grad):,} trainable)")
