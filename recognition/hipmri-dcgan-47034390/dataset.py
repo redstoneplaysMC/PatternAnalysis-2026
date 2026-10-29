@@ -12,7 +12,6 @@ CROP_WIDTH = 128
 CROP_START = 8
 IMAGE_SHAPE = (256, 128)
 
-
 def normalize_image(image: np.ndarray) -> np.ndarray:
     low, high = np.percentile(image, [1, 99])
     image = np.clip(image, low, high)

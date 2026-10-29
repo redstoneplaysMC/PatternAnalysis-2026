@@ -4,13 +4,23 @@ import torch.nn.functional as F
 from pathlib import Path
 
 def save_generated_samples(
-    decoder,
-    epoch,
-    latent_dim,
-    device,
-    results_dir,
-    batch_size=16,
+    decoder: torch.nn.Module,
+    epoch: int,
+    latent_dim: int,
+    device: torch.device,
+    results_dir: Path,
+    batch_size: int = 16,
 ):
+    """Save generated samples from the decoder.
+
+    Args:
+        decoder (torch.nn.Module): The decoder model.
+        epoch (int): The current epoch number.
+        latent_dim (int): The dimensionality of the latent space.
+        device (torch.device): The device to run the model on.
+        results_dir (Path): Directory to save the generated samples.
+        batch_size (int, optional): Number of samples to generate. Defaults to 16.
+    """
     decoder.eval()
 
     with torch.no_grad():
@@ -43,11 +53,23 @@ def save_generated_samples(
     plt.close(fig)
 
 def plot_training_losses(
-    total_losses,
-    reconstruction_losses,
-    kl_losses,
-    results_dir,
+    total_losses: list,
+    reconstruction_losses: list,
+    kl_losses: list,
+    grad_encoder_losses: list,
+    grad_decoder_losses: list,
+    results_dir: Path,
 ):
+    """Plot training and gradient losses for the VAE.
+
+    Args:
+        total_losses (list): List of total VAE losses per epoch.
+        reconstruction_losses (list): List of reconstruction losses per epoch.
+        kl_losses (list): List of KL divergence losses per epoch.
+        grad_encoder_losses (list): List of gradient encoder losses per epoch.
+        grad_decoder_losses (list): List of gradient decoder losses per epoch.
+        results_dir (Path): Directory to save the loss plots.
+    """
     fig, ax = plt.subplots(figsize=(8, 5))
 
     ax.plot(total_losses, label="Total VAE Loss")
@@ -67,17 +89,47 @@ def plot_training_losses(
         bbox_inches="tight",
     )
     plt.close(fig)
+    # Plot gradient losses in a separate figure.
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ax.plot(grad_encoder_losses, label="Grad Encoder Loss")
+    ax.plot(grad_decoder_losses, label="Grad Decoder Loss")
+
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss per Image")
+    ax.set_title("Gradient Losses")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(
+        results_dir / "gradient_losses.png",
+        dpi=150,
+        bbox_inches="tight",
+    )
+    plt.close(fig)
 
 
 def save_validation_comparison(
-    encoder,
-    decoder,
-    validate_dataloader,
-    epoch,
-    device,
-    results_dir,
-    count=8,
+    encoder: torch.nn.Module,
+    decoder: torch.nn.Module,
+    validate_dataloader: torch.utils.data.DataLoader,
+    epoch: int,
+    device: torch.device,
+    results_dir: Path,
+    count: int = 8,
 ):
+    """Save a comparison of real and reconstructed images from the validation set.
+
+    Args:
+        encoder (torch.nn.Module): The encoder model of the VAE.
+        decoder (torch.nn.Module): The decoder model of the VAE.
+        validate_dataloader (torch.utils.data.DataLoader): DataLoader for the validation dataset.
+        epoch (int): Current epoch number.
+        device (torch.device): Device to run the models on.
+        results_dir (Path): Directory to save the comparison images.
+        count (int, optional): Number of images to display. Defaults to 8.
+    """
     encoder.eval()
     decoder.eval()
 

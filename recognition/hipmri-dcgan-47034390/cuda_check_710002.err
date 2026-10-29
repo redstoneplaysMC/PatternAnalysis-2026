@@ -1,0 +1,38 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/Student/s4703439/COMP3710/a3/train.py", line 550, in <module>
+    main()
+  File "/home/Student/s4703439/COMP3710/a3/train.py", line 539, in main
+    create_plot(
+  File "/home/Student/s4703439/COMP3710/a3/train.py", line 492, in create_plot
+    generated = G(noise).cpu()
+                ^^^^^^^^
+  File "/home/Student/s4703439/miniconda3/envs/torch/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/Student/s4703439/miniconda3/envs/torch/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/Student/s4703439/COMP3710/a3/modules.py", line 52, in forward
+    return self.model(z)
+           ^^^^^^^^^^^^^
+  File "/home/Student/s4703439/miniconda3/envs/torch/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/Student/s4703439/miniconda3/envs/torch/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/Student/s4703439/miniconda3/envs/torch/lib/python3.11/site-packages/torch/nn/modules/container.py", line 253, in forward
+    input = module(input)
+            ^^^^^^^^^^^^^
+  File "/home/Student/s4703439/miniconda3/envs/torch/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/Student/s4703439/miniconda3/envs/torch/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/Student/s4703439/miniconda3/envs/torch/lib/python3.11/site-packages/torch/nn/modules/conv.py", line 1198, in forward
+    return F.conv_transpose2d(
+           ^^^^^^^^^^^^^^^^^^^
+RuntimeError: Input type (torch.FloatTensor) and weight type (torch.cuda.FloatTensor) should be the same or input should be a MKLDNN tensor and weight is a dense tensor

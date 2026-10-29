@@ -18,7 +18,8 @@ SSIM             Structural/pixel similarity
 Generated images Visual quality
 G/D losses       Training dynamics
 Generation time  Computational performance
-GPU memory       Resource requirements -->
+GPU memory       Resource requirements 
+-->
 Comparing basic autoencoder to DCGAN.
 
 Investigate: General Engineering & Research Guidelines
@@ -125,7 +126,8 @@ py -m baseline.predict
 ```
 
 ## Pre-processing
-Preprocessing... The images were noramlized between 0 and 1 to...
+Preprocessing... The images were noramlized between 0 and 1. 
+Only the week 4 dataset was used.
 Justification of training, validation and testing splits of the data.
 
 

@@ -25,5 +25,5 @@ echo "=== PyTorch ==="
 python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA:', torch.version.cuda); print('CUDA available:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NONE')"
 
 # Run the script
-python -u train2.py
-python -u predict.py
+python -m train
+# python -m baseline.train

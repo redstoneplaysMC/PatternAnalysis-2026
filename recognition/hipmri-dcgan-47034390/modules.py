@@ -5,9 +5,14 @@ class Generator(nn.Module):
     def __init__(self, latent_dim=100, channels=1, image_size=(256, 128)):
         """
         Generator Class: transforms random noise vector into a full sized image through upsampling (Conv2d)
+        The assumed input shape is (100, 1, 1) for the latent vector.
+        Input:
+            z (torch.Tensor): Random noise vector of shape (batch_size, latent_dim, 1, 1)
+        Output (torch.Tensor): Generated image of shape (batch_size, channels, 256, 128)
+        Architecture: (ConvTranspose2d + BatchNorm2d + ReLU) blocks for upsampling, followed by Tanh for output.
         Parameters: latent_dim - dimension of random noise vector
-                    img_channels - number of output image channels in final layer (1 for grayscale)
-                    feature_maps - number of feature maps in each convolutional layer
+                    channels - number of output image channels in final layer (1 for grayscale)
+                    image_size - size of the output image (height, width)
         """
         super().__init__()
 

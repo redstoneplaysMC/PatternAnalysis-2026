@@ -2,12 +2,12 @@ defaults:
   betas: [0.5, 0.999] # Betas for the Adam Optimizer.
   seed: 42 # Random seed for reproducibility.
   norm_image: true # If the image is to be normalized.
-  week: 4 # Week parameter for the dataset.
   sample_interval: 3 # Interval (in epochs) at which to save generated samples.
   rangpur: false # Whether to use GPU if available.
   validate: true # Whether to perform validation during training.
   validate_every: 10 # Interval (in epochs) at which to perform validation.
   max_validate_images: 200 # Maximum number of validation images to use.
+  week: 7 # Week of the loaded dataset. Set to None to train for all weeks.
 
 # RANGPUR VERSION
 hipmri_dcgan:
@@ -28,7 +28,7 @@ hipmri_vae:
   data_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_train/"
   test_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_test/"
   validate_dir: "/home/groups/comp3710/HipMRI_Study_open/keras_slices_data/keras_slices_validate/"
-  results_dir: "./vae_results"
+  results_dir: "./baseline_results"
   num_epochs: 50 # Number of training epochs. Longer can improve results.
   latent_dim: 100 # Dimensionality of the latent space.
   max_train_images: 11460 # Maximum number of training images to use.

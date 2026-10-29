@@ -5,7 +5,24 @@ import torch.nn.functional as F
 from torchvision.transforms.functional import resize
 from torchmetrics.image.fid import FrechetInceptionDistance
 
-def save_generated_samples(G, epoch, latent_dim, device, results_dir:Path, batch_size):
+def save_generated_samples(
+    G: torch.nn.Module,
+    epoch: int,
+    latent_dim: int,
+    device: torch.device,
+    results_dir: Path,
+    batch_size: int):
+    """
+    Save generated samples from the generator.
+
+    Args:
+        G (torch.nn.Module): The generator model.
+        epoch (int): The current epoch number.
+        latent_dim (int): The dimensionality of the latent space.
+        device (torch.device): The device to run the model on.
+        results_dir (Path): Directory to save the generated samples.
+        batch_size (int): Number of samples to generate.
+    """
     G.eval()
 
     with torch.no_grad():
@@ -37,7 +54,23 @@ def save_generated_samples(G, epoch, latent_dim, device, results_dir:Path, batch
     )
     plt.close(fig)
 
-def plot_training_losses(generator_losses, discriminator_losses, results_dir):
+def plot_training_losses(
+    generator_losses: list,
+    discriminator_losses: list,
+    grad_G_norms: list,
+    grad_D_norms: list,
+    results_dir: Path
+):
+    """
+    Plot the training losses and gradient norms for the DCGAN.
+
+    Args:
+        generator_losses (list): List of generator losses per iteration.
+        discriminator_losses (list): List of discriminator losses per iteration.
+        grad_G_norms (list): List of gradient norms for the generator per iteration.
+        grad_D_norms (list): List of gradient norms for the discriminator per iteration.
+        results_dir (Path): Directory to save the plots.
+    """
     # Plots the training losses.
     plt.figure()
     plt.plot(
@@ -64,7 +97,6 @@ def plot_training_losses(generator_losses, discriminator_losses, results_dir):
 
     ax.plot(generator_losses, label="Generator")
     ax.plot(discriminator_losses, label="Discriminator")
-
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss")
     ax.set_title("DCGAN Training Loss")
@@ -76,17 +108,43 @@ def plot_training_losses(generator_losses, discriminator_losses, results_dir):
     )
 
     plt.close(fig)
+    # Plot norms.
+    fig, ax = plt.subplots()
+    ax.plot(grad_G_norms, label="Grad G Norms")
+    ax.plot(grad_D_norms, label="Grad D Norms")
+    ax.set_xlabel("Training iteration")
+    ax.set_ylabel("Gradient Norm")
+    ax.set_title("Gradient Norms During Training")
+    ax.legend()
+
+    fig.savefig(
+        results_dir / "gradient_norms.png",
+        bbox_inches="tight"
+    )
+    plt.close(fig)
 
 
 def save_validation_comparison(
-    G,
-    validate_dataloader,
-    epoch,
-    latent_dim,
-    device,
-    results_dir,
-    count=8,
+    G: torch.nn.Module,
+    validate_dataloader: torch.utils.data.DataLoader,
+    epoch: int,
+    latent_dim: int,
+    device: torch.device,
+    results_dir: Path,
+    count: int = 8,
 ):
+    """
+    Save a comparison of real and generated images from the validation set.
+
+    Args:
+        G (torch.nn.Module): The generator model.
+        validate_dataloader (torch.utils.data.DataLoader): DataLoader for the validation dataset.
+        epoch (int): Current epoch number.
+        latent_dim (int): The dimensionality of the latent space.
+        device (torch.device): Device to run the model on.
+        results_dir (Path): Directory to save the comparison images.
+        count (int, optional): Number of images to display. Defaults to 8.
+    """
     G.eval()
     results_dir = Path(results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)

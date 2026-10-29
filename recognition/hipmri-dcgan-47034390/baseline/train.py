@@ -1,16 +1,16 @@
 import time
 import torch
-import matplotlib.pyplot as plt
 import yaml
+import torch
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from pathlib import Path
 from baseline.modules import Encoder, Decoder
 from baseline.utils import save_generated_samples, plot_training_losses, save_validation_comparison
 from dataset import HipMRIDataset
 from torchvision.utils import save_image
-import torch
-import torch.nn.functional as F
-
+from metrics import check_gradients
 # Run from the project root.
 
 IMAGE_SIZE = (256, 128)
@@ -18,11 +18,13 @@ IMAGE_CHANNELS = 1
 SAMPLE_INTERVAL = 3
 CONFIG_PATH = Path("config.yaml")
 
+# Set random seed for reproducibility.
 def set_seed(seed):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
+# Load configuration from the YAML file.
 def load_config():
     with open(CONFIG_PATH, encoding="utf-8") as file:
         raw = yaml.safe_load(file)
@@ -30,6 +32,7 @@ def load_config():
     profile = "hipmri_vae" if raw["defaults"]["rangpur"] else "hipmri_vae_cpu"
     return {**raw["defaults"], **raw[profile]}
 
+# Configure the device for training (CPU or GPU).
 def configure_device():
     device = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu"
@@ -42,6 +45,7 @@ def configure_device():
 
     return device
 
+# Initialize the training dataloader.
 def initialize_dataloader(config):
     print("Starting dataset initialisation...", flush=True)
     dataset = HipMRIDataset(
@@ -72,6 +76,7 @@ def initialize_dataloader(config):
 
     return train_dataloader
 
+# Initialize the validation dataloader.
 def initialize_validation_dataloader(config):
     print("Starting dataset initialisation...", flush=True)
     dataset = HipMRIDataset(
@@ -102,7 +107,9 @@ def initialize_validation_dataloader(config):
 
     return validation_dataloader
 
+# Initialize the VAE model for training.
 def initialize_training_model(config, latent_dim, device):
+    """Initialize the generator and discriminator models for training."""
     encoder = Encoder(
         latent_dim=latent_dim,
         channels=1,
@@ -135,42 +142,69 @@ def initialize_training_model(config, latent_dim, device):
 
 
 def train_one_epoch(
-    train_dataloader,
-    encoder,
-    decoder,
-    optimizer,
-    device,
-    beta=1.0,
+    train_dataloader: DataLoader,
+    encoder: torch.nn.Module,
+    decoder: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    device: torch.device,
+    epoch: int,
+    beta: float,
 ):
+    """Train the VAE for one epoch.
+
+    Args:
+        train_dataloader (DataLoader): DataLoader for the training dataset.
+        encoder (torch.nn.Module): The encoder model of the VAE.
+        decoder (torch.nn.Module): The decoder model of the VAE.
+        optimizer (torch.optim.Optimizer): Optimizer for the VAE parameters.
+        device (torch.device): Device to run the training on.
+        epoch (int): Current epoch number.
+        beta (float): Weight for the KL divergence term.
+
+    Returns:
+        tuple: (total_loss, total_reconstruction, total_kl)
+    """
     encoder.train()
     decoder.train()
-
     total_loss = 0.0
     total_reconstruction = 0.0
     total_kl = 0.0
+    epoch_grad_encoder = 0.0
+    epoch_grad_decoder = 0.0
     num_batches = 0
 
-    for real_images in train_dataloader:
+    for batch_idx, real_images in enumerate(train_dataloader):
+        # Ensure real_images is a tensor, not a tuple or list.
         if isinstance(real_images, (tuple, list)):
             real_images = real_images[0]
-
+        # Move real_images to the correct device and type.
         real_images = real_images.to(
             device=device,
             dtype=torch.float32,
         )
-
+        
+        # Set gradients to zero.
         optimizer.zero_grad(set_to_none=True)
 
         # Encode into a latent distribution.
         mu, logvar = encoder(real_images)
+        if not torch.isfinite(mu).all() or not torch.isfinite(logvar).all():
+            raise FloatingPointError(
+                f"Non-finite latent parameters at epoch {epoch}, batch {batch_idx}"
+            )
 
-        # Reparameterisation trick.
+        # Reparameterization trick: sample latent vector z from the distribution defined by mu and logvar.
         std = torch.exp(0.5 * logvar)
         z = mu + torch.randn_like(std) * std
 
         # Reconstruct the input image.
         reconstructed = decoder(z)
-
+        
+        # Check if the reconstructed image contains finite values.
+        if not torch.isfinite(reconstructed).all():
+            raise FloatingPointError(
+                f"Non-finite reconstruction at epoch {epoch}, batch {batch_idx}"
+            )
         # Reconstruction loss.
         reconstruction_loss = F.mse_loss(
             reconstructed,
@@ -185,13 +219,21 @@ def train_one_epoch(
 
         # Combined VAE objective.
         loss = reconstruction_loss + beta * kl_loss
+        # Check if loss is finite before back-propagation.
+        if not torch.isfinite(loss):
+            raise ValueError(f"Non-finite loss encountered at batch {batch_idx}.")
 
+        # Backpropagate the loss.
         loss.backward()
+        grad_norm_encoder = check_gradients(encoder, "encoder", epoch, batch_idx)
+        grad_norm_decoder = check_gradients(decoder, "decoder", epoch, batch_idx)
         optimizer.step()
 
         total_loss += loss.item()
         total_reconstruction += reconstruction_loss.item()
         total_kl += kl_loss.item()
+        epoch_grad_encoder += grad_norm_encoder
+        epoch_grad_decoder += grad_norm_decoder
         num_batches += 1
 
     if num_batches == 0:
@@ -201,13 +243,15 @@ def train_one_epoch(
         total_loss / num_batches,
         total_reconstruction / num_batches,
         total_kl / num_batches,
+        epoch_grad_encoder / num_batches,
+        epoch_grad_decoder / num_batches,
     )
 
 def validate_one_epoch(
-    validate_dataloader,
+    validate_dataloader: DataLoader,
     encoder: torch.nn.Module,
     decoder: torch.nn.Module,
-    device,
+    device: torch.device,
     beta=1.0,
 ):
     encoder.eval()
@@ -263,13 +307,14 @@ def validate_one_epoch(
     
 
 def save_checkpoint(
-    encoder,
-    decoder,
-    optimizer,
-    epoch,
-    latent_dim,
-    results_dir,
+    encoder: torch.nn.Module,
+    decoder: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    epoch: int,
+    latent_dim: int,
+    results_dir: Path,
 ):
+    # Save the current state of the VAE model and optimizer as a checkpoint.
     torch.save(
         {
             "encoder": encoder.state_dict(),
@@ -284,7 +329,7 @@ def save_checkpoint(
 def train_loop(
     config,
 ):
-    # Setup.
+    # Setup training components: dataloaders, device, models, and optimizers.
     latent_dim = config["latent_dim"]
     train_dataloader = initialize_dataloader(config)
     device = configure_device()
@@ -308,27 +353,30 @@ def train_loop(
     total_losses = []
     reconstruction_losses = []
     kl_losses = []
+    grad_encoder_losses = []
+    grad_decoder_losses = []
+    epoch_times = []
 
     for epoch in range(1, num_epochs + 1):
-        mean_loss, mean_reconstruction, mean_kl = train_one_epoch(
+        epoch_start = time.perf_counter()
+        mean_loss, mean_reconstruction, mean_kl, mean_grad_encoder, mean_grad_decoder = \
+        train_one_epoch(
             train_dataloader,
             encoder,
             decoder,
             optimizer,
             device,
-            beta=config.get("beta", 1.0),
+            epoch=epoch,
+            beta = config.get("beta", 1.0)
         )
 
         total_losses.append(mean_loss)
         reconstruction_losses.append(mean_reconstruction)
         kl_losses.append(mean_kl)
+        grad_encoder_losses.append(mean_grad_encoder)
+        grad_decoder_losses.append(mean_grad_decoder)
+        epoch_times.append(time.perf_counter() - epoch_start)
 
-        print(
-            f"Epoch [{epoch}/{num_epochs}] "
-            f"Loss: {mean_loss:.4f} "
-            f"Reconstruction: {mean_reconstruction:.4f} "
-            f"KL: {mean_kl:.4f}"
-        )
         # Save generated samples for every [sample_interval] epochs.
         if epoch % config["sample_interval"] == 0 or epoch == 1:
             save_generated_samples(
@@ -358,14 +406,39 @@ def train_loop(
                 count=8,
             )
 
-            print(
+            validation_message = (
                 f"Validation - Epoch [{epoch}/{num_epochs}] "
                 f"Loss: {val_loss:.4f} "
                 f"Reconstruction: {val_reconstruction:.4f} "
                 f"KL: {val_kl:.4f}"
             )
-
+            print(validation_message)
+            
+        message = (
+            f"Epoch [{epoch}/{num_epochs}] "
+            f"Loss: {mean_loss:.4f} "
+            f"Reconstruction: {mean_reconstruction:.4f} "
+            f"KL: {mean_kl:.4f} "
+            f"Grad Encoder: {grad_encoder_losses[-1]:.4f} "
+            f"Grad Decoder: {grad_decoder_losses[-1]:.4f} "
+            f"Epoch Time: {epoch_times[-1]:.2f} s"
+        )
+        # Log peak memory
+        if device.type == "cuda":
+            allocated = torch.cuda.max_memory_allocated(device) / 1024**2
+            reserved = torch.cuda.max_memory_reserved(device) / 1024**2
+            message += (
+                f"Peak Allocated: {allocated:.1f} MB, "
+                f"Peak Reserved: {reserved:.1f} MB"
+            )
+        print(message)
     # Final statistics.
+    print("Training finished!")
+    print(f"Total Losses: {total_losses}")
+    print(f"Reconstruction Losses: {reconstruction_losses}")
+    print(f"KL Losses: {kl_losses}")
+    print(f"Grad Encoder Losses: {grad_encoder_losses}")
+    print(f"Grad Decoder Losses: {grad_decoder_losses}")
     if device.type == "cuda":
         torch.cuda.synchronize()
         peak_memory = torch.cuda.max_memory_allocated(device)
@@ -384,9 +457,9 @@ def train_loop(
         Path(config["results_dir"]),
     )
 
-    return encoder, decoder, total_losses, reconstruction_losses, kl_losses
+    return encoder, decoder, total_losses, reconstruction_losses, kl_losses, grad_encoder_losses, grad_decoder_losses
 
-def create_plot(decoder, results_dir, total_losses, reconstruction_losses, kl_losses, latent_dim, device):
+def create_plot(decoder, results_dir, total_losses, reconstruction_losses, kl_losses, grad_encoder_losses, grad_decoder_losses, latent_dim, device):
     # Generate final samples.
     decoder.eval()
 
@@ -429,6 +502,8 @@ def create_plot(decoder, results_dir, total_losses, reconstruction_losses, kl_lo
         total_losses,
         reconstruction_losses,
         kl_losses,
+        grad_encoder_losses,
+        grad_decoder_losses,
         results_dir,
     )
         
@@ -438,7 +513,7 @@ def main():
     results_dir = Path(config["results_dir"])
     device = configure_device()
     results_dir.mkdir(parents=True, exist_ok=True)
-    encoder, decoder, total_losses, reconstruction_losses, kl_losses = \
+    encoder, decoder, total_losses, reconstruction_losses, kl_losses, grad_encoder_losses, grad_decoder_losses = \
         train_loop(config)
     create_plot(
         decoder, 
@@ -446,10 +521,12 @@ def main():
         total_losses, 
         reconstruction_losses, 
         kl_losses, 
+        grad_encoder_losses,
+        grad_decoder_losses,
         config["latent_dim"],
         device
     )
-    return encoder, decoder, total_losses, reconstruction_losses, kl_losses
+    return encoder, decoder, total_losses, reconstruction_losses, kl_losses, grad_encoder_losses, grad_decoder_losses
 
 if __name__ == "__main__":
     main()
