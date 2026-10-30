@@ -3,7 +3,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import torch
 import yaml
-from baseline.modules import Decoder
+from torch.utils.data import DataLoader
+from baseline.modules import Encoder, Decoder
 
 # Prediction script for generating and visualizing images using a trained DCGAN generator.
 # A different predict must be used for the baseline.
@@ -87,7 +88,6 @@ def load_real_images(config):
     return next(iter(DataLoader(Subset(dataset, indices), batch_size=COUNT)))
 
 def plot_generated_images_comparison(
-    config: dict, 
     device: torch.device, 
     results_dir: Path, 
     generated: torch.Tensor, 
@@ -104,9 +104,6 @@ def plot_generated_images_comparison(
     """
     
     if INCLUDE_REFERENCE_DATASET:
-        real_images = load_real_images(
-            config
-        )
         fig, axes = plt.subplots(
             GENERATE_ROWS,
             GENERATE_COLS * 2,
@@ -150,31 +147,159 @@ def plot_generated_images_comparison(
     print(f"Device: {device}")
     print(f"Saved images to: {output_path}")
 
+def plot_reconstructions(
+    encoder,
+    decoder,
+    dataloader,
+    device,
+    results_dir,
+    num_rows=4,
+):
+    encoder.eval()
+    decoder.eval()
+
+    real_images = []
+
+    with torch.no_grad():
+        images = next(iter(DataLoader(
+            dataloader.dataset,
+            batch_size=len(dataloader.dataset),
+            shuffle=True,
+        )))
+
+        real_images = images[:num_rows].to(
+            device=device,
+            dtype=torch.float32,
+        )
+
+        mu, _ = encoder(real_images)
+        reconstructed = decoder(mu)
+
+    real_images = real_images.cpu()
+    reconstructed = reconstructed.cpu()
+
+    fig, axes = plt.subplots(
+        2,
+        num_rows,
+        figsize=(3 * num_rows, 6),
+    )
+
+    for i in range(num_rows):
+        axes[0, i].imshow(real_images[i, 0], cmap="gray", vmin=-1, vmax=1)
+        axes[0, i].set_title(f"Real {i + 1}")
+        axes[0, i].axis("off")
+
+        axes[1, i].imshow(
+            reconstructed[i, 0],
+            cmap="gray",
+            vmin=-1,
+            vmax=1,
+        )
+        axes[1, i].set_title(f"Reconstruction {i + 1}")
+        axes[1, i].axis("off")
+
+    plt.tight_layout()
+    plt.savefig(results_dir / "reconstruction_comparison.png", dpi=150)
+    print(f"Saved reconstruction comparison to: {results_dir / 'reconstruction_comparison.png'}")
+    plt.close(fig)
+
 def main():
+    from dataset import HipMRIDataset
+    from metrics import compute_ssim, compute_fid, diversity_stats, evaluate_reconstructions
+    from baseline.modules import Encoder, Decoder
     import pprint
+
     config = load_config()
     pprint.pprint(config)
     set_seed(config.get("seed", 42))
-    data_dir = resolve_path(config["data_dir"])
+
     results_dir = resolve_path(config["results_dir"])
     results_dir.mkdir(parents=True, exist_ok=True)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     latent_dim = config["latent_dim"]
     checkpoint_path = results_dir / "checkpoint.pth"
+
     print(f"RANGPUR: {config.get('rangpur', False)}")
-    print(f"Data directory: {data_dir}, Results directory: {results_dir}, Checkpoint path: {checkpoint_path}")
+    print(f"Results directory: {results_dir}")
+    print(f"Checkpoint path: {checkpoint_path}")
 
-    if not checkpoint_path.exists():
-        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+    real_images = load_real_images(config)
+    real_images = real_images.to(device, dtype=torch.float32)
 
-    plot_generated_images_comparison(
-        config=config,
-        device=device,
-        results_dir=results_dir,
-        generated=torch.randn(COUNT, latent_dim, 1, 1, device=device).cpu(),
-        real_images=load_real_images(config)
+    checkpoint = torch.load(
+        checkpoint_path,
+        map_location=device,
+        weights_only=False,
     )
 
+    encoder = Encoder(latent_dim=latent_dim, channels=1).to(device)
+    decoder = Decoder(latent_dim=latent_dim, channels=1).to(device)
+
+    encoder.load_state_dict(checkpoint["encoder"])
+    decoder.load_state_dict(checkpoint["decoder"])
+
+    encoder.eval()
+    decoder.eval()
+
+    with torch.no_grad():
+        noise = torch.randn(COUNT, latent_dim, device=device)
+        generated = decoder(noise).cpu()
+
+
+    dataset = HipMRIDataset(
+        data_dir=config["test_dir"],
+        max_images=config.get("max_train_images"),
+        norm_image=config.get("norm_image", True),
+        week=config.get("week"),
+    )
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=config["batch_size"],
+        shuffle=True,
+    )
+
+    # Plot generated images comparison between real and generated images. 
+    # This uses the images generated from random noise and the real images from the dataset.
+    plot_generated_images_comparison(
+        device=device,
+        results_dir=results_dir,
+        generated=generated,
+        real_images=real_images,
+    )
+    
+    # Plot reconstructions of real images using the encoder and decoder. This does not use PCA since the images are being
+    # reconstructed directly from the encoder's latent representation, therefore PCA is not involved in this step.
+    # This takes images from the test dataset.
+    plot_reconstructions(
+        encoder=encoder,
+        decoder=decoder,
+        dataloader=dataloader,
+        device=device,
+        results_dir=results_dir,
+        num_rows=GENERATE_ROWS,
+    )
+        
+    # Reconstruction evaluation.
+    reconstruction_ssim = compute_ssim(
+        *evaluate_reconstructions(
+            encoder,
+            decoder,
+            dataloader,
+            device,
+        )
+    )
+
+    # Generation evaluation.
+    fid = compute_fid(real_images, generated)
+    diversity = diversity_stats(generated)
+
+    print(f"Reconstruction SSIM: {reconstruction_ssim:.4f}")
+    print(f"Generation FID: {fid:.4f}")
+    print("Diversity:")
+    print(f"  Mean pairwise distance: {diversity['mean_pairwise_distance']:.4f}")
+    print(f"  Mean nearest neighbour distance: {diversity['mean_nearest_neighbour_distance']:.4f}")
 
 if __name__ == "__main__":
     main()

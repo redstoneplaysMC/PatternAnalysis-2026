@@ -12,7 +12,7 @@ CONFIG_PATH = Path("config.yaml")
 INCLUDE_REFERENCE_DATASET = True
 # Number of images to generate and visualize.
 
-def compute_fid(reference_images: torch.Tensor, generated: torch.Tensor) -> None:
+def compute_fid(reference_images: torch.Tensor, generated: torch.Tensor) -> float:
     """Compute the Frechet Inception Distance (FID) between reference and generated images.
 
     Args:
@@ -67,6 +67,7 @@ def compute_fid(reference_images: torch.Tensor, generated: torch.Tensor) -> None
     fid_score = fid.compute()
 
     print(f"FID: {fid_score.item():.4f}")
+    return fid_score.item()
 
 def compute_ssim(
     img1: torch.Tensor,
@@ -145,6 +146,32 @@ def diversity_stats(images):
         "mean_pairwise_distance": distances[distances.isfinite()].mean().item(),
         "mean_nearest_neighbour_distance": distances.min(dim=1).values.mean().item(),
     }
+    
+def evaluate_reconstructions(encoder, decoder, dataloader, device):
+    encoder.eval()
+    decoder.eval()
+
+    real_images = []
+    reconstructed_images = []
+
+    with torch.no_grad():
+        for images in dataloader:
+            if isinstance(images, (tuple, list)):
+                images = images[0]
+
+            images = images.to(device, dtype=torch.float32)
+
+            mu, _ = encoder(images)
+            reconstructed = decoder(mu)
+
+            real_images.append(images.cpu())
+            reconstructed_images.append(reconstructed.cpu())
+
+    real_images = torch.cat(real_images)
+    reconstructed_images = torch.cat(reconstructed_images)
+
+    return (real_images, reconstructed_images)
+
     
 def main():
     config = load_config()

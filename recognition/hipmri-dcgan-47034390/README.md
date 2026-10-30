@@ -2,15 +2,8 @@
 Christopher Zhang - s4703439
 
 # Problem
-<!-- Brain segmentation is a crucial and critical task within the medical areas. Difficulties in separating gray and white matters 
-    (Dénes-Fazakas et al., 2025) or identifying abnormal regions containing tumor (Lin et al., 2021). These tasks require not only 
-    high accuracy but also a very time-consuming process. Thus, the DeepLearning model of Improved UNet is introduced to help improve
-    precision and fasten the process while ensuring everyone's safety.
-    (1 Paragraph.)
--->
-
-<!-- Try an easier dataset, like MNIST for the feasibility report. If this approach works, then we can attempt it on the actual dataset. -->
 <!-- SSIM means: "For each generated image, how structurally similar is it to the single most similar real image?" -->
+
 <!-- What it tells you
 
 FID              Distribution similarity
@@ -19,8 +12,6 @@ Generated images Visual quality
 G/D losses       Training dynamics
 Generation time  Computational performance
 GPU memory       Resource requirements 
--->
-Comparing basic autoencoder to DCGAN.
 
 Investigate: General Engineering & Research Guidelines
 1. Pipeline Setup & Training Stability: Implement appropriate loss formulations (e.g., Wasserstein   tance with gradient penalty, 
@@ -34,7 +25,16 @@ Profile GPU memory, training stability, and generation runtime.
 4. Qualitative Autopsy & Memorization Audit: Display uncurated sample grids across diverse random seeds (avoid cherry-picking). 
 For style-based or diffusion models, provide a 2D t-SNE or UMAP embedding plot comparing real and synthetic distributions. 
 Conduct a failure autopsy on 3–5 flawed generations (checkerboard artifacts, distorted tissue margins, mode drops) 
-and audit nearest training neighbors to disprove patient memorization.
+and audit nearest training neighbors to disprove patient memorization. -->
+
+
+Generartive models allow synthesizing realistic synthetic cohorts without comprimising on patient anonymity. To do this, DC-GAN ()
+
+We are first starting with DCGAN. Use the HipMRI 2D slices (`keras_slices_data`)
+Reasonably clear image with SSIM > 0.6.
+
+The purpose of this assignment is to synthesize artificial HipMRI data for medical training and imaging purposes.
+
 
 Segmentation dataset isn't required; since we are running a generative model.
 
@@ -62,13 +62,7 @@ For example:
 - A conclusion discussing diversity, anatomical quality, possible memorization, and limitations
 -->
 
-We are first starting with DCGAN. Use the HipMRI 2D slices (`keras_slices_data`)
-Reasonably clear image with SSIM > 0.6.
-
-Generartive models allow synthesizing realistic synthetic cohorts without comprimising on patient anonymity. 
-The purpose of this assignment is to synthesize artificial HipMRI data for medical training and imaging purposes.
-
-`modules.py`: containing the source code of the components for your model. Each component must be implemented as a class/function 
+<!-- `modules.py`: containing the source code of the components for your model. Each component must be implemented as a class/function 
     in pytorch, or TF/Keras. (I will probably be using pytorch). The model should not depend on numpy, in any way unless otherwise 
     approved by the teaching staff.
 `dataset.py`: Data loader for loading and pre-processing of your data, including leakage-free train/validations/test splitting 
@@ -79,31 +73,50 @@ The purpose of this assignment is to synthesize artificial HipMRI data for medic
 `predict.py` Show an example usage of the trained model. It should load the saved model weights, run inference on test cases, 
     print out any results, and provide visualizations were applicable (e.g. prediction overlays, generated samples and heatmaps). 
     Numpy is allowed for visualization or loading of the data.
-`README.md` Document the project, working principles, feasibility review, experiments and instructions.
+`README.md` Document the project, working principles, feasibility review, experiments and instructions. -->
 
 # Model Descripton
-<!-- Standard UNet has trouble in dealing with long-range dependencies, blurred boundaries, and low-contrast environment 
-(Al Qurri & Almekkawy, 2023). The improved UNet consist of an encoder-decoder architecture with residual blocks and skip 
-connections. The encoder extract hierarchical features, while the decoder upsamples them to construct a segmentation map. 
-Normalization and dropout are used to improve training and prevent overfitting. 
-In this project, there are four classes that will be output by the model.  -->
-<!-- Description of the model, and how it works -->
-The models I will be using are a basic autoencoder and the DC-GAN model. DC-GAN will be used here since it should hopefully produce better results.
-
+In this project, there are four classes that will be output by the model. To understand how the models work, we must first understand the properties of the dataset.
 <!-- All preprocessing is performed in dataset.py using the HipMRIDataset class, which handles NIfTI medical imaging files and prepares them for GAN training. -->
+I have used the variational autoencoder and DC-GAN as my chosen models to generate the images.
 
-Architecture guidelines for stable Deep Convolutional GANs
-- Replace any pooling layers with strided convolutions (discriminator) and fractional-strided
-convolutions (generator).
-- Use batchnorm in both the generator and the discriminator.
+
+## Description of the Dataset
+The dataset is the Hip-MRI dataset. It is split into 8 weeks, from week 0 to week 7. The training dataset has 11460 images; there are 32 people in the training dataset; from case 4 to case 35; 3 people in the validation dataset, from case 36 to 39, and 3 people in the test dataset; case 40 to 42.
+
+For my experiment, in order to get more controlled data, I will only be using week 4 and week 7 of the dataset; although it is possible to train on the entire model, the resulting generated data would not be able to distinguish the week data.
+
+## DC-GAN
+GANs use a generator and a discriminator. Both models must compete with each-other during the training loop; the discriminator must be able to distinguish if the images created by the generator are real. DC-gan extends this by using a deep convolutional network; 
+- replace pooling layers with strided convolutions.
+- use batchnorm for both the generator and discriminator.
 - Remove fully connected hidden layers for deeper architectures.
-- Use ReLU activation in generator for all layers except for the output, which uses Tanh.
-- Use LeakyReLU activation in the discriminator for all layers.
+- Use ReLU activation in the generator for all layers, except the output, which uses Tanh.
+- Use LeakyReLU activation for all layers of the discriminator.
+
+The architecture has the following structure:
+
+The training process is:
+
+
+
+## VAE Baseline
+The VAE is divided into an encoder and a decoder. They have the following architectures:
+
 
 # Feasibility Review 
 (From S3, 1 page)
+Intended User: Medical students who need synthetic Hip MRI data so that they can test while maintaining patient privacy.
 
-Is this feasible? Write a 1-page MD for this.
+DIFFICULTY: Normal.
+
+Chosen model(s): Variatonal autoencoder, DCGAN. Purpose of the models is to generate synthetic images; this report serves to compare the two models.
+
+Feasibility: The model was first tested on the CIFAR-10 Dataset, batch-size 32 and 30 epochs. It was able to generate synthetic data with 30 epochs; 20 epochs isn’t sufficient enough. The CIFAR10 Dataset is 32x32; whereas the HipMRI Dataset is a bit more. This was compared with the basic auto-encoder. Once these models worked, a similar model was tested on the HIPMRI dataset on the CPU and was able to run successfully.
+
+Verification is done by splitting the dataset into test, validation and training vectors; this was done already in the supplied dataset.
+
+Risks: The model doesn’t generate adequately detailed synthetic data without excessive training time. The model generates, but it falls into model collapse due to insufficient data variability. 
 
 
 # Reproducibility
@@ -113,31 +126,35 @@ The following is the list of python dependencies required to run this project.
 -   numpy
 -   random
 -   pyYaml
+
+For the dataset:
 -   tqdm
 -   typing
 -   nibabel
 -   re
 To ensure reproducible results, in config.yaml, set the seed to 42.
 
-To run the baseline, the following commands were executed:
+To run the DC-GAN model, execute the following commands to train/predict:
+```bash
+py -m train
+py -m predict
+```
+
+Execute the following commands to run the baseline model:
 ```bash
 py -m baseline.train
+py -m baseline.predict_with_pca
 py -m baseline.predict
 ```
 
 ## Pre-processing
-Preprocessing... The images were noramlized between 0 and 1. 
-Only the week 4 dataset was used.
-Justification of training, validation and testing splits of the data.
-
+The data is pre-processed in `dataset.py`. First, the images are stored in the nii.gz format; they must be extracted and converted into a Tensor.
 
 ## Inputs, outputs, and visualizations.
-The model takes inputs from nii.gz files.
 Example inputs and outputs go here.
 The algorithm takes in...
 The algorithm should ouptut...
 
-The dice similarity scores were...
 This is shown in the following table.
 
 | Option A | Option B | Option C |
@@ -147,8 +164,7 @@ This is shown in the following table.
 
 
 ## Visualization of the algorithm and training plots
-The training process was visualized and is shown in the following plots.
-<!-- Paste model output here, and training plots. -->
+The model was trained for 50 Epochs on the RANGPUR cluster.
 
 # Investigation of the Open Research Dilemma
 <!-- ????? What does this mean? -->
@@ -159,11 +175,21 @@ The training process was visualized and is shown in the following plots.
 
 # Artifical Intellegence Usage disclosure
 <!-- The mandatory Artificial Intelligence Usage Disclosure subsection (see Section 6). -->
-AI tools used: ChatGPT, Github Copilot Autocomplete.
-## Tasks that the AI tools were used for:
-1. abcd
-## AI-code auditing method
+AI tools used were: ChatGPT and Github Copilot Autocomplete. The code was checked over manually, and this document was written mostly without AI.
 
+## Tasks that the AI tools were used for:
+The AI tools were used for:
+- Providing inspiration for how to implement the methods.
+- Code checking and Debugging.
+- Supplementary Code review. 
+- Cursory Feedback on the generated outputs.
+- Code scaffolding.
+- Writing code comments.
+
+## AI-code auditing method
+The code was generated by AI; but the expected outputs were looked at manually. Any comments were reviewed manually to ensure that they were correct.
+
+A lot of the code was inspired by [2], where this user did the same project, but using W-GAN instead of DC-GAN, and didn't do a comparison model. However, I did not copy the code from that PR; just used it as inpsiration.
 
 <!-- # Responsible Use of AI and Mandatory Disclosure -->
 <!-- Generative AI models are permitted to assist your learning and implementation workflows. However,
@@ -179,11 +205,13 @@ the expectations of engineering professionalism apply:
 3. Prohibited Misconduct: Copying code from fellow students, reusing previous years’ pull requests,
 or committing unverified AI hallucinations. -->
 
-<!-- Put the actual AI Disclosure here. -->
-
-# References
+## References
 <!-- Put references here. Use the APA Format.-->
 <!-- Reference any websites used to do the assignment. -->
-[10] DCGAN, radford et al, [2015]
+[1] Radford, A., Metz, L., & Chintala, S. (2016). Unsupervised representation learning with deep convolutional generative adversarial networks. arXiv. https://arxiv.org/abs/1511.06434
+
+[2] samuel2003-coder. (2025). *PatternAnalysis2025* [recognition]. GitHub. https://github.com/samuel2003-coder/PatternAnalysis-2025/tree/topic-recognition
+
 https://en.wikipedia.org/wiki/Wasserstein_metric
+
 https://lilianweng.github.io/posts/2017-08-20-gan/#what-is-wasserstein-distance

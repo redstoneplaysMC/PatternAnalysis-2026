@@ -1,7 +1,6 @@
 import time
 import torch
 import yaml
-import torch
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
@@ -14,8 +13,6 @@ from metrics import check_gradients
 # Run from the project root.
 
 IMAGE_SIZE = (256, 128)
-IMAGE_CHANNELS = 1
-SAMPLE_INTERVAL = 3
 CONFIG_PATH = Path("config.yaml")
 
 # Set random seed for reproducibility.
@@ -80,7 +77,7 @@ def initialize_dataloader(config):
 def initialize_validation_dataloader(config):
     print("Starting dataset initialisation...", flush=True)
     dataset = HipMRIDataset(
-        data_dir = Path(config["data_dir"]),
+        data_dir = Path(config["validate_dir"]),
         max_images = None,
         norm_image = True,
         week = config["week"]
@@ -90,7 +87,7 @@ def initialize_validation_dataloader(config):
     validation_dataloader = DataLoader(
         dataset,
         batch_size=config["batch_size"],
-        shuffle=True,
+        shuffle=False,
         num_workers=0, # Set to 0 while using the CPU.
         pin_memory=torch.cuda.is_available(),
     )
@@ -108,8 +105,9 @@ def initialize_validation_dataloader(config):
     return validation_dataloader
 
 # Initialize the VAE model for training.
-def initialize_training_model(config, latent_dim, device):
+def initialize_training_model(config, device):
     """Initialize the generator and discriminator models for training."""
+    latent_dim = config["latent_dim"]
     encoder = Encoder(
         latent_dim=latent_dim,
         channels=1,
@@ -205,7 +203,7 @@ def train_one_epoch(
             raise FloatingPointError(
                 f"Non-finite reconstruction at epoch {epoch}, batch {batch_idx}"
             )
-        # Reconstruction loss.
+        # Reconstruction loss; this is a function of mse and SSIM losses.
         reconstruction_loss = F.mse_loss(
             reconstructed,
             real_images,
@@ -252,7 +250,7 @@ def validate_one_epoch(
     encoder: torch.nn.Module,
     decoder: torch.nn.Module,
     device: torch.device,
-    beta=1.0,
+    beta: float ,
 ):
     encoder.eval()
     decoder.eval()
@@ -337,7 +335,7 @@ def train_loop(
         validate_dataloader = initialize_validation_dataloader(config)
 
     encoder, decoder, optimizer = (
-        initialize_training_model(config, latent_dim, device)
+        initialize_training_model(config, device)
     )
 
     num_epochs = config["num_epochs"]
@@ -356,6 +354,7 @@ def train_loop(
     grad_encoder_losses = []
     grad_decoder_losses = []
     epoch_times = []
+    beta = config.get("beta", 1.0)
 
     for epoch in range(1, num_epochs + 1):
         epoch_start = time.perf_counter()
@@ -367,7 +366,7 @@ def train_loop(
             optimizer,
             device,
             epoch=epoch,
-            beta = config.get("beta", 1.0)
+            beta = beta
         )
 
         total_losses.append(mean_loss)
@@ -394,6 +393,7 @@ def train_loop(
                 encoder,
                 decoder,
                 device,
+                beta=beta,
             )
 
             save_validation_comparison(

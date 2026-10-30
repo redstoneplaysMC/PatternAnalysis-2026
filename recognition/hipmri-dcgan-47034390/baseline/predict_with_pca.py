@@ -6,9 +6,7 @@ import numpy as np
 import yaml
 from torch.utils.data import DataLoader
 from baseline.modules import Encoder, Decoder
-from dataset import HipMRIDataset
 from sklearn.decomposition import PCA
-
 # Prediction script for generating and visualizing images using a trained DCGAN generator.
 # A different predict must be used for the baseline.
 
@@ -159,16 +157,12 @@ def init():
     return config, data_dir, results_dir, device, latent_dim, checkpoint_path
 
 def plot_generated_images_comparison(
-    config: dict, 
     device: torch.device, 
     results_dir: Path, 
     generated: torch.Tensor, 
     real_images: torch.Tensor):
 
     if INCLUDE_REFERENCE_DATASET:
-        real_images = load_real_images(
-            config
-        )
         fig, axes = plt.subplots(
             GENERATE_ROWS,
             GENERATE_COLS * 2,
@@ -214,6 +208,10 @@ def plot_generated_images_comparison(
 
 
 def main():
+    from dataset import HipMRIDataset
+    from metrics import compute_ssim, compute_fid, diversity_stats, evaluate_reconstructions
+    from baseline.predict import plot_reconstructions
+
     config, data_dir, results_dir, device, latent_dim, checkpoint_path = init()
     
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
@@ -246,13 +244,54 @@ def main():
             latent_vectors, decoder, device
         )
 
+    real_images = load_real_images(config)
+    real_images = real_images.to(device, dtype=torch.float32)
+
     plot_generated_images_comparison(
-        config=config,
         device=device,
         results_dir=results_dir,
         generated=generated,
-        real_images=load_real_images(config)
+        real_images=real_images
     )
+    
+    # Plot reconstructions of real images using the encoder and decoder. This does not use PCA since the images are being
+    # reconstructed directly from the encoder's latent representation, therefore PCA is not involved in this step.
+    plot_reconstructions(
+        encoder=encoder,
+        decoder=decoder,
+        dataloader=dataloader,
+        device=device,
+        results_dir=results_dir,
+        num_rows=GENERATE_ROWS,
+    )
+        
+    # Reconstruction evaluation.
+    reconstruction_ssim = compute_ssim(
+        *evaluate_reconstructions(
+            encoder,
+            decoder,
+            dataloader,
+            device,
+        )
+    )
+
+    # Generate images using PCA latent sampling.
+    with torch.no_grad():
+        generated = generate_random_pca_samples(
+            latent_vectors,
+            decoder,
+            device,
+        )
+
+    # Generation evaluation.
+    fid = compute_fid(real_images, generated)
+    diversity = diversity_stats(generated)
+
+    print(f"Reconstruction SSIM: {reconstruction_ssim:.4f}")
+    print(f"Generation FID: {fid:.4f}")
+    print("Diversity:")
+    print(f"  Mean pairwise distance: {diversity['mean_pairwise_distance']:.4f}")
+    print(f"  Mean nearest neighbour distance: {diversity['mean_nearest_neighbour_distance']:.4f}")
 
 if __name__ == "__main__":
     main()

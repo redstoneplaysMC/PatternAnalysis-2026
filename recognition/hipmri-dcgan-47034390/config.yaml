@@ -2,8 +2,8 @@ defaults:
   betas: [0.5, 0.999] # Betas for the Adam Optimizer.
   seed: 42 # Random seed for reproducibility.
   norm_image: true # If the image is to be normalized.
-  sample_interval: 3 # Interval (in epochs) at which to save generated samples.
-  rangpur: false # Whether to use GPU if available.
+  sample_interval: 5 # Interval (in epochs) at which to save generated samples.
+  rangpur: false # Whether RANGPUR is being used.
   validate: true # Whether to perform validation during training.
   validate_every: 10 # Interval (in epochs) at which to perform validation.
   max_validate_images: 200 # Maximum number of validation images to use.
@@ -32,10 +32,11 @@ hipmri_vae:
   num_epochs: 50 # Number of training epochs. Longer can improve results.
   latent_dim: 100 # Dimensionality of the latent space.
   max_train_images: 11460 # Maximum number of training images to use.
-  batch_size: 16
+  batch_size: 64
   size_reference_dataset: 64
   size_generated_dataset: 32
   learning_rate: 0.0002
+  beta: 1.0 # Weight for the KL divergence term in the VAE loss.  
 
 
 # CPU TESTING VERSION
@@ -65,3 +66,4 @@ hipmri_vae_cpu:
   size_reference_dataset: 64
   size_generated_dataset: 32
   learning_rate: 0.0002
+  beta: 0.1 # Weight for the KL divergence term in the VAE loss.
