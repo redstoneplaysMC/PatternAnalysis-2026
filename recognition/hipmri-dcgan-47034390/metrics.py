@@ -12,7 +12,6 @@ CONFIG_PATH = Path("config.yaml")
 INCLUDE_REFERENCE_DATASET = True
 # Number of images to generate and visualize.
 
-
 def compute_fid(reference_images: torch.Tensor, generated: torch.Tensor) -> None:
     """Compute the Frechet Inception Distance (FID) between reference and generated images.
 
@@ -146,7 +145,6 @@ def diversity_stats(images):
         "mean_pairwise_distance": distances[distances.isfinite()].mean().item(),
         "mean_nearest_neighbour_distance": distances.min(dim=1).values.mean().item(),
     }
-    
     
 def main():
     config = load_config()

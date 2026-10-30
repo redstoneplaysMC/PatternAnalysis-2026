@@ -26,8 +26,8 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
     torch.use_deterministic_algorithms(True)
 
-def load_config():
-    with open(CONFIG_PATH, encoding="utf-8") as file:
+def load_config(path=CONFIG_PATH):
+    with open(path, encoding="utf-8") as file:
         raw = yaml.safe_load(file)
 
     profile = "hipmri_dcgan" if raw["defaults"]["rangpur"] else "hipmri_dcgan_cpu"
@@ -88,16 +88,12 @@ def load_real_images(config):
     return next(iter(DataLoader(Subset(dataset, indices), batch_size=COUNT)))
 
 def plot_generated_images_comparison(
-    config: dict, 
     device: torch.device, 
     results_dir: Path, 
     generated: torch.Tensor, 
     real_images: torch.Tensor):
 
     if INCLUDE_REFERENCE_DATASET:
-        real_images = load_real_images(
-            config
-        )
         fig, axes = plt.subplots(
             GENERATE_ROWS,
             GENERATE_COLS * 2,
@@ -143,6 +139,8 @@ def plot_generated_images_comparison(
 
 
 def main():
+    # Load AFTER to prevent import.
+    from metrics import compute_fid, diversity_stats, compute_ssim
     import pprint
     config = load_config()
     set_seed(config.get("seed", 42))
@@ -161,13 +159,24 @@ def main():
         z = torch.randn(COUNT, latent_dim, 1, 1, device=device)
         generated = G(z).cpu()
 
+    real_images=load_real_images(config)
+
     plot_generated_images_comparison(
-        config=config,
         device=device,
         results_dir=results_dir,
         generated=generated,
-        real_images=load_real_images(config)
+        real_images=real_images
     )
+    
+    print("Metrics for DC-GAN:")
+    print("Real:", diversity_stats(real_images))
+    print("Generated:", diversity_stats(generated))
+    # This SSIM isn't directly comparing corresponding real and generated images, 
+    # but gives an overall similarity measure; therefore, it won't be a high value.
+    print(f"Generation SSIM: {compute_ssim(real_images, generated):.4f}")
+    compute_fid(real_images, generated)
+    print("Metrics computation completed.")
 
+    
 if __name__ == "__main__":
     main()
