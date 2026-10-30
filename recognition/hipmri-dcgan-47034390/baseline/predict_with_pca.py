@@ -13,7 +13,7 @@ from sklearn.decomposition import PCA
 # Path to the configuration file and other constants for prediction
 CONFIG_PATH = Path("config.yaml")
 INCLUDE_REFERENCE_DATASET = True
-GENERATE_ROWS = 12
+GENERATE_ROWS = 4
 GENERATE_COLS = 4
 COUNT = GENERATE_ROWS * GENERATE_COLS
 PCA_COMPONENTS = 10

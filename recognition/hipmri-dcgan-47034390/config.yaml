@@ -44,7 +44,7 @@ hipmri_dcgan_cpu:
   data_dir: "./data/keras_slices_train"
   test_dir: "./data/keras_slices_test"
   validate_dir: "./data/keras_slices_validate"
-  results_dir: "./results"
+  results_dir: "./results_week4"
   num_epochs: 20 # Number of training epochs. Longer can improve results.
   latent_dim: 100 # Dimensionality of the latent space.
   max_train_images: 200 # Maximum number of training images to use.

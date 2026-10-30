@@ -1,7 +1,5 @@
 import torch.nn as nn
-
-# Encoder and decoder structure for the basic autoencoder. To run on the CIFAR10 Dataset.
-# AI was used here.
+# Encoder and Decoder for the VAE. Partially Written by AI.
 
 class Encoder(nn.Module):
     def __init__(self, latent_dim, channels=1, image_size=(256, 128)):

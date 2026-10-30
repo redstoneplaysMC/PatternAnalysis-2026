@@ -1,5 +1,6 @@
-# Ts vibe-coded lol. Fix it and make it produce something passable before submitting it to rangpur.
 import torch.nn as nn
+
+# Generator and Discriminator for the GAN. Partially Written by AI.
 
 class Generator(nn.Module):
     def __init__(self, latent_dim=100, channels=1, image_size=(256, 128)):
